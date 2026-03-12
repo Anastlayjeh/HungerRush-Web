@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>HungerRush | Orders Management</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ff7b47",
+                        "background-light": "#f8f6f5",
+                        "background-dark": "#23150f",
+                    },
+                    fontFamily: {
+                        "display": ["Work Sans"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Work Sans', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Modal visibility toggle */
+        #manual-order-modal:not(.active) {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
+<div class="flex h-screen overflow-hidden">
+<!-- Sidebar -->
+<aside class="w-64 border-r border-primary/10 bg-white dark:bg-slate-900 flex flex-col shrink-0">
+<div class="p-6 flex items-center gap-3">
+<div class="bg-primary size-10 rounded-lg flex items-center justify-center text-white">
+<span class="material-symbols-outlined">restaurant</span>
+</div>
+<div>
+<h1 class="text-slate-900 dark:text-white text-base font-bold leading-none">HungerRush</h1>
+<p class="text-primary text-xs font-medium">Restaurant Management</p>
+</div>
+</div>
+<nav class="flex-1 px-4 py-4 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary text-white" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="text-sm font-medium">Orders</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">menu_book</span>
+<span class="text-sm font-medium">Menu</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">videocam</span>
+<span class="text-sm font-medium">Videos</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">star</span>
+<span class="text-sm font-medium">Reviews</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">card_membership</span>
+<span class="text-sm font-medium">Loyalty</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">monitoring</span>
+<span class="text-sm font-medium">Analytics</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-sm font-medium">Settings</span>
+</a>
+</nav>
+<div class="p-4 border-t border-primary/10">
+<div class="flex items-center gap-3 px-3 py-2 rounded-xl bg-primary/5">
+<div class="size-10 rounded-full bg-slate-300 overflow-hidden bg-cover bg-center" data-alt="Profile picture of the store manager" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCfno-lRT1a7iZbsWEDWJ6YO-jEyArfY--xT5lnlmtZpoF8YE1UVYt2SPiEeQPGzdyIOCs_eq0On-YJNoEMGn-F7q5A7RfjJ_iMkwf2xmPUgXMcx-Zm-7yt6MUdIYEk1HGi6TIx6-AF81MTF4iPym1SWLEjVzxCAEGjxp2IkQpmuCjBqpqbOAi6YoPnmNVWXYFUuerZ7q3At5nv3xO_WLmzSvE-OhQslsR5lB_g-IvwEqq3eBXurgMq23NftDIFoywM9skawWxjV540')"></div>
+<div class="flex-1 min-w-0">
+<p class="text-sm font-bold truncate">Alex Miller</p>
+<p class="text-xs text-slate-500 truncate">Store Manager</p>
+</div>
+<span class="material-symbols-outlined text-slate-400 text-sm">logout</span>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 flex flex-col overflow-hidden">
+<!-- Header -->
+<header class="h-16 border-b border-primary/10 bg-white dark:bg-slate-900 flex items-center justify-between px-8 shrink-0">
+<div class="flex items-center gap-4">
+<h2 class="text-xl font-bold">Active Orders</h2>
+<div class="flex items-center gap-2 px-2.5 py-1 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full text-xs font-bold uppercase tracking-widest">
+<span class="size-2 rounded-full bg-green-500 animate-pulse"></span>
+                    Live
+                </div>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+<input class="pl-10 pr-4 py-2 bg-background-light dark:bg-slate-800 border-none rounded-lg focus:ring-2 focus:ring-primary w-64 text-sm" placeholder="Search orders..." type="text"/>
+</div>
+<button class="size-10 flex items-center justify-center rounded-lg bg-background-light dark:bg-slate-800 text-slate-600 dark:text-slate-400 relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 size-2 bg-primary rounded-full border-2 border-white dark:border-slate-800"></span>
+</button>
+</div>
+</header>
+<!-- Content Area -->
+<div class="flex-1 overflow-y-auto p-8">
+<!-- Status Filter -->
+<div class="flex items-center gap-2 mb-8 bg-white dark:bg-slate-900 p-1 rounded-xl w-fit shadow-sm border border-primary/5">
+<button class="px-5 py-2 rounded-lg bg-primary text-white font-semibold text-sm">All Orders</button>
+<button class="px-5 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 font-medium text-sm transition-colors">Pending</button>
+<button class="px-5 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 font-medium text-sm transition-colors">Preparing</button>
+<button class="px-5 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 font-medium text-sm transition-colors">Ready</button>
+<button class="px-5 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 font-medium text-sm transition-colors">Out for Delivery</button>
+</div>
+<!-- Orders Table -->
+<div class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-primary/10 overflow-hidden">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-primary/10">
+<th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Order ID</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Customer</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Items</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Price</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Time</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Status</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-primary/5">
+<!-- Pending Order -->
+<tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
+<td class="px-6 py-5 font-bold text-primary">#1024</td>
+<td class="px-6 py-5">
+<div class="font-semibold text-slate-900 dark:text-white">John Doe</div>
+<div class="text-xs text-slate-500">Delivery • 1.2 miles away</div>
+</td>
+<td class="px-6 py-5 text-sm">
+<span class="font-medium text-slate-800 dark:text-slate-200">2x Big Burger Extra Cheese</span>
+<div class="text-xs text-slate-500">No onions, extra sauce</div>
+</td>
+<td class="px-6 py-5 text-right font-bold text-slate-900 dark:text-white">$24.50</td>
+<td class="px-6 py-5 text-sm text-slate-600 dark:text-slate-400">12:05 PM</td>
+<td class="px-6 py-5">
+<div class="flex justify-center">
+<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400">
+                                        PENDING
+                                    </span>
+</div>
+</td>
+<td class="px-6 py-5 text-right">
+<button class="px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary/90 shadow-sm transition-all active:scale-95">Accept</button>
+</td>
+</tr>
+<!-- Preparing Order -->
+<tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
+<td class="px-6 py-5 font-bold text-primary">#1023</td>
+<td class="px-6 py-5">
+<div class="font-semibold text-slate-900 dark:text-white">Jane Smith</div>
+<div class="text-xs text-slate-500">Pickup • 12:15 PM</div>
+</td>
+<td class="px-6 py-5 text-sm">
+<span class="font-medium text-slate-800 dark:text-slate-200">1x Veggie Wrap, 1x Coke Zero</span>
+</td>
+<td class="px-6 py-5 text-right font-bold text-slate-900 dark:text-white">$18.00</td>
+<td class="px-6 py-5 text-sm text-slate-600 dark:text-slate-400">11:58 AM</td>
+<td class="px-6 py-5">
+<div class="flex justify-center">
+<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                                        PREPARING
+                                    </span>
+</div>
+</td>
+<td class="px-6 py-5 text-right">
+<button class="px-4 py-2 bg-background-light dark:bg-slate-800 border border-primary/20 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-lg hover:bg-primary/10 transition-all">Update Status</button>
+</td>
+</tr>
+<!-- Ready Order -->
+<tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
+<td class="px-6 py-5 font-bold text-primary">#1022</td>
+<td class="px-6 py-5">
+<div class="font-semibold text-slate-900 dark:text-white">Robert Brown</div>
+<div class="text-xs text-slate-500">Delivery • Priority</div>
+</td>
+<td class="px-6 py-5 text-sm">
+<span class="font-medium text-slate-800 dark:text-slate-200">3x Street Tacos, 1x Fries</span>
+</td>
+<td class="px-6 py-5 text-right font-bold text-slate-900 dark:text-white">$15.75</td>
+<td class="px-6 py-5 text-sm text-slate-600 dark:text-slate-400">11:45 AM</td>
+<td class="px-6 py-5">
+<div class="flex justify-center">
+<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400">
+                                        READY
+                                    </span>
+</div>
+</td>
+<td class="px-6 py-5 text-right">
+<button class="px-4 py-2 bg-background-light dark:bg-slate-800 border border-primary/20 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-lg hover:bg-primary/10 transition-all">Update Status</button>
+</td>
+</tr>
+<!-- Out for Delivery Order -->
+<tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
+<td class="px-6 py-5 font-bold text-primary">#1021</td>
+<td class="px-6 py-5">
+<div class="font-semibold text-slate-900 dark:text-white">Emily Davis</div>
+<div class="text-xs text-slate-500">Delivery • DoorDash</div>
+</td>
+<td class="px-6 py-5 text-sm">
+<span class="font-medium text-slate-800 dark:text-slate-200">1x Pepperoni Pizza Large</span>
+</td>
+<td class="px-6 py-5 text-right font-bold text-slate-900 dark:text-white">$21.00</td>
+<td class="px-6 py-5 text-sm text-slate-600 dark:text-slate-400">11:30 AM</td>
+<td class="px-6 py-5">
+<div class="flex justify-center">
+<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                                        IN TRANSIT
+                                    </span>
+</div>
+</td>
+<td class="px-6 py-5 text-right">
+<button class="px-4 py-2 bg-background-light dark:bg-slate-800 border border-primary/20 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-lg hover:bg-primary/10 transition-all">Track Order</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Footer Stats -->
+<div class="mt-8 grid grid-cols-1 md:grid-cols-4 gap-6">
+<div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-primary/10 shadow-sm">
+<p class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Queue Time</p>
+<div class="flex items-end gap-2">
+<span class="text-2xl font-bold">12m</span>
+<span class="text-green-500 text-xs font-bold mb-1 flex items-center">
+<span class="material-symbols-outlined text-sm">trending_down</span> 2m
+                        </span>
+</div>
+</div>
+<div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-primary/10 shadow-sm">
+<p class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Total Orders</p>
+<div class="flex items-end gap-2">
+<span class="text-2xl font-bold">48</span>
+<span class="text-primary text-xs font-bold mb-1">Today</span>
+</div>
+</div>
+<div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-primary/10 shadow-sm">
+<p class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Active Chefs</p>
+<div class="flex items-end gap-2">
+<span class="text-2xl font-bold">6</span>
+<span class="text-slate-400 text-xs font-bold mb-1">Online</span>
+</div>
+</div>
+<button class="bg-primary hover:bg-primary/90 text-white p-6 rounded-2xl border border-primary/10 shadow-lg shadow-primary/20 flex items-center justify-center gap-3 transition-all active:scale-95 group" onclick="document.getElementById('manual-order-modal').classList.add('active')">
+<span class="material-symbols-outlined text-3xl group-hover:rotate-90 transition-transform">add_circle</span>
+<span class="text-lg font-bold">Manual Order</span>
+</button>
+</div>
+</div>
+</main>
+</div>
+<!-- Manual Order Modal -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4" id="manual-order-modal">
+<!-- Backdrop -->
+<div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="document.getElementById('manual-order-modal').classList.remove('active')"></div>
+<!-- Modal Content -->
+<div class="relative bg-white dark:bg-slate-900 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+<!-- Modal Header -->
+<div class="p-6 border-b border-primary/10 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="bg-primary size-10 rounded-lg flex items-center justify-center text-white">
+<span class="material-symbols-outlined">add_shopping_cart</span>
+</div>
+<h3 class="text-xl font-bold text-slate-900 dark:text-white">New Manual Order</h3>
+</div>
+<button class="size-10 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-colors" onclick="document.getElementById('manual-order-modal').classList.remove('active')">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<!-- Modal Body -->
+<div class="p-8 overflow-y-auto space-y-6">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Customer Name -->
+<div class="space-y-1.5">
+<label class="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Customer Name</label>
+<input class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all" placeholder="e.g. Michael Scott" type="text"/>
+</div>
+<!-- Phone Number -->
+<div class="space-y-1.5">
+<label class="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Phone Number</label>
+<input class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all" placeholder="+1 (555) 000-0000" type="tel"/>
+</div>
+</div>
+<!-- Delivery Address -->
+<div class="space-y-1.5">
+<label class="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Delivery Address</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">location_on</span>
+<input class="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all" placeholder="1725 Slough Avenue, Scranton, PA" type="text"/>
+</div>
+</div>
+<!-- Menu Items Selection -->
+<div class="space-y-3">
+<label class="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Search &amp; Select Items</label>
+<div class="flex gap-2">
+<div class="relative flex-1">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+<input class="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all" placeholder="Search menu items..." type="text"/>
+</div>
+<div class="w-24">
+<input class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-center" min="1" placeholder="Qty" type="number" value="1"/>
+</div>
+<button class="bg-primary/10 text-primary p-3 rounded-xl hover:bg-primary/20 transition-colors">
+<span class="material-symbols-outlined">add</span>
+</button>
+</div>
+<!-- Selected Items List (Empty State shown for UI) -->
+<div class="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 border border-dashed border-slate-200 dark:border-slate-700">
+<div class="flex items-center justify-between text-sm py-2 px-2 border-b border-slate-100 dark:border-slate-700/50">
+<span class="font-medium">1x Large Pepperoni Pizza</span>
+<div class="flex items-center gap-4">
+<span class="font-bold">$18.00</span>
+<button class="text-slate-400 hover:text-red-500"><span class="material-symbols-outlined text-lg">delete</span></button>
+</div>
+</div>
+<div class="flex items-center justify-between text-sm py-2 px-2">
+<span class="font-medium">2x Garlic Knots</span>
+<div class="flex items-center gap-4">
+<span class="font-bold">$6.50</span>
+<button class="text-slate-400 hover:text-red-500"><span class="material-symbols-outlined text-lg">delete</span></button>
+</div>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+<!-- Payment Method -->
+<div class="space-y-1.5">
+<label class="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Payment Method</label>
+<select class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all appearance-none cursor-pointer">
+<option>Cash on Delivery</option>
+<option>Credit/Debit Card</option>
+<option>In-Store Payment</option>
+<option>Loyalty Points</option>
+</select>
+</div>
+<!-- Order Summary -->
+<div class="bg-primary/5 rounded-2xl p-4 border border-primary/10">
+<div class="flex justify-between items-center mb-1">
+<span class="text-xs text-slate-500 font-medium">Subtotal</span>
+<span class="text-sm font-bold">$24.50</span>
+</div>
+<div class="flex justify-between items-center mb-2 pb-2 border-b border-primary/10">
+<span class="text-xs text-slate-500 font-medium">Tax &amp; Fees</span>
+<span class="text-sm font-bold">$3.20</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Total</span>
+<span class="text-2xl font-black text-primary">$27.70</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Modal Footer -->
+<div class="p-6 border-t border-primary/10 bg-slate-50 dark:bg-slate-800/30 flex gap-4">
+<button class="flex-1 px-6 py-3.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" onclick="document.getElementById('manual-order-modal').classList.remove('active')">
+                Cancel
+            </button>
+<button class="flex-[2] px-6 py-3.5 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95">
+                Create Order
+            </button>
+</div>
+</div>
+</div>
+</body></html>

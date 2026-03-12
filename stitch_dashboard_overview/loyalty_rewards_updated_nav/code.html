@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ff7b47",
+                        "background-light": "#f8f6f5",
+                        "background-dark": "#23150f",
+                    },
+                    fontFamily: {
+                        "display": ["Work Sans"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Work Sans', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display">
+<div class="flex min-h-screen">
+<!-- Sidebar -->
+<aside class="w-64 border-r border-primary/10 bg-white dark:bg-background-dark/50 flex flex-col fixed h-full z-10">
+<div class="p-6 flex items-center gap-3">
+<div class="bg-primary size-10 rounded-lg flex items-center justify-center text-white">
+<span class="material-symbols-outlined">restaurant</span>
+</div>
+<div>
+<h1 class="text-slate-900 dark:text-white text-base font-bold leading-none">HungerRush</h1>
+<p class="text-primary text-xs font-medium">Restaurant Management</p>
+</div>
+</div>
+<nav class="flex-1 px-4 py-4 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="text-sm font-medium">Orders</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">menu_book</span>
+<span class="text-sm font-medium">Menu</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">videocam</span>
+<span class="text-sm font-medium">Videos</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">star</span>
+<span class="text-sm font-medium">Reviews</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary text-white" href="#">
+<span class="material-symbols-outlined">card_membership</span>
+<span class="text-sm font-medium">Loyalty</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">monitoring</span>
+<span class="text-sm font-medium">Analytics</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-sm font-medium">Settings</span>
+</a>
+</nav>
+<div class="p-4 border-t border-primary/10">
+<div class="flex items-center gap-3 px-3 py-2 rounded-xl bg-primary/5">
+<div class="size-10 rounded-full bg-slate-300 overflow-hidden bg-cover bg-center" data-alt="Profile picture of the restaurant manager" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCfno-lRT1a7iZbsWEDWJ6YO-jEyArfY--xT5lnlmtZpoF8YE1UVYt2SPiEeQPGzdyIOCs_eq0On-YJNoEMGn-F7q5A7RfjJ_iMkwf2xmPUgXMcx-Zm-7yt6MUdIYEk1HGi6TIx6-AF81MTF4iPym1SWLEjVzxCAEGjxp2IkQpmuCjBqpqbOAi6YoPnmNVWXYFUuerZ7q3At5nv3xO_WLmzSvE-OhQslsR5lB_g-IvwEqq3eBXurgMq23NftDIFoywM9skawWxjV540')"></div>
+<div class="flex-1 min-w-0">
+<p class="text-sm font-bold truncate">Alex Miller</p>
+<p class="text-xs text-slate-500 truncate">Store Manager</p>
+</div>
+<span class="material-symbols-outlined text-slate-400 text-sm">logout</span>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="ml-64 flex-1 flex flex-col min-h-screen">
+<!-- Top Header -->
+<header class="h-16 border-b border-primary/10 bg-white dark:bg-background-dark flex items-center justify-between px-8 sticky top-0 z-10">
+<h2 class="text-lg font-bold">Loyalty &amp; Rewards</h2>
+<div class="flex items-center gap-4">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xl">search</span>
+<input class="pl-10 pr-4 py-2 bg-primary/5 border-none rounded-lg text-sm w-64 focus:ring-1 focus:ring-primary" placeholder="Search customers..." type="text"/>
+</div>
+<button class="size-10 flex items-center justify-center rounded-lg bg-primary/5 text-slate-600 hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</div>
+</header>
+<div class="p-8 space-y-8">
+<!-- Welcome Section -->
+<div class="flex items-end justify-between">
+<div>
+<h1 class="text-3xl font-black tracking-tight">Loyalty Program</h1>
+<p class="text-slate-500 mt-1">Boost customer retention with tailored rewards and points tracking.</p>
+</div>
+<button class="bg-primary text-white px-6 py-2.5 rounded-lg font-bold text-sm shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-xl">add_circle</span>
+                        Create New Reward
+                    </button>
+</div>
+<!-- Stats Overview -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="bg-white dark:bg-background-dark p-6 rounded-xl border border-primary/10 shadow-sm">
+<div class="flex justify-between items-start mb-4">
+<span class="material-symbols-outlined p-2 bg-blue-50 text-blue-500 rounded-lg">stars</span>
+<span class="text-emerald-500 text-xs font-bold flex items-center bg-emerald-50 px-2 py-1 rounded-full">+12.4%</span>
+</div>
+<p class="text-slate-500 text-sm font-medium">Total Points Issued</p>
+<h3 class="text-2xl font-black mt-1">1,250,400</h3>
+</div>
+<div class="bg-white dark:bg-background-dark p-6 rounded-xl border border-primary/10 shadow-sm">
+<div class="flex justify-between items-start mb-4">
+<span class="material-symbols-outlined p-2 bg-orange-50 text-orange-500 rounded-lg">redeem</span>
+<span class="text-emerald-500 text-xs font-bold flex items-center bg-emerald-50 px-2 py-1 rounded-full">+5.2%</span>
+</div>
+<p class="text-slate-500 text-sm font-medium">Points Redeemed</p>
+<h3 class="text-2xl font-black mt-1">840,200</h3>
+</div>
+<div class="bg-white dark:bg-background-dark p-6 rounded-xl border border-primary/10 shadow-sm">
+<div class="flex justify-between items-start mb-4">
+<span class="material-symbols-outlined p-2 bg-purple-50 text-purple-500 rounded-lg">groups</span>
+<span class="text-emerald-500 text-xs font-bold flex items-center bg-emerald-50 px-2 py-1 rounded-full">+8.1%</span>
+</div>
+<p class="text-slate-500 text-sm font-medium">Active Members</p>
+<h3 class="text-2xl font-black mt-1">12,450</h3>
+</div>
+</div>
+<!-- Active Rewards & Top Customers -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- Active Rewards Cards -->
+<div class="lg:col-span-2 space-y-6">
+<div class="flex items-center justify-between">
+<h2 class="text-xl font-bold">Active Rewards</h2>
+<button class="text-primary text-sm font-bold hover:underline">View All</button>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<!-- Reward Card 1 -->
+<div class="bg-white dark:bg-background-dark p-5 rounded-xl border-l-4 border-primary shadow-sm border border-primary/5">
+<div class="flex justify-between items-start">
+<div class="bg-primary/10 p-2 rounded-lg text-primary mb-3 inline-block">
+<span class="material-symbols-outlined">percent</span>
+</div>
+<span class="bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded">Active</span>
+</div>
+<h4 class="font-bold text-lg">10% Off Loyal Special</h4>
+<p class="text-sm text-slate-500 mt-1">Unlocked after 5 completed orders</p>
+<div class="mt-4 pt-4 border-t border-primary/5 flex items-center justify-between">
+<span class="text-xs font-medium text-slate-400">Used 1,240 times</span>
+<button class="text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined">edit</span>
+</button>
+</div>
+</div>
+<!-- Reward Card 2 -->
+<div class="bg-white dark:bg-background-dark p-5 rounded-xl border-l-4 border-slate-300 shadow-sm border border-primary/5">
+<div class="flex justify-between items-start">
+<div class="bg-slate-100 p-2 rounded-lg text-slate-500 mb-3 inline-block">
+<span class="material-symbols-outlined">lunch_dining</span>
+</div>
+<span class="bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded">Draft</span>
+</div>
+<h4 class="font-bold text-lg text-slate-700">Free Dessert Voucher</h4>
+<p class="text-sm text-slate-500 mt-1">Redeemable for 500 loyalty points</p>
+<div class="mt-4 pt-4 border-t border-primary/5 flex items-center justify-between">
+<span class="text-xs font-medium text-slate-400">Not yet active</span>
+<button class="text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined">edit</span>
+</button>
+</div>
+</div>
+<!-- Reward Card 3 -->
+<div class="bg-white dark:bg-background-dark p-5 rounded-xl border-l-4 border-primary shadow-sm border border-primary/5">
+<div class="flex justify-between items-start">
+<div class="bg-primary/10 p-2 rounded-lg text-primary mb-3 inline-block">
+<span class="material-symbols-outlined">local_shipping</span>
+</div>
+<span class="bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded">Active</span>
+</div>
+<h4 class="font-bold text-lg">Free Delivery Weekend</h4>
+<p class="text-sm text-slate-500 mt-1">For members with 1000+ points</p>
+<div class="mt-4 pt-4 border-t border-primary/5 flex items-center justify-between">
+<span class="text-xs font-medium text-slate-400">Used 450 times</span>
+<button class="text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined">edit</span>
+</button>
+</div>
+</div>
+<!-- Add Placeholder Card -->
+<button class="border-2 border-dashed border-primary/20 rounded-xl p-5 flex flex-col items-center justify-center gap-2 hover:bg-primary/5 transition-colors group">
+<span class="material-symbols-outlined text-primary/40 group-hover:text-primary text-3xl">add_circle</span>
+<span class="text-sm font-bold text-primary/60 group-hover:text-primary">Add New Incentive</span>
+</button>
+</div>
+</div>
+<!-- Top Loyal Customers -->
+<div class="space-y-6">
+<div class="flex items-center justify-between">
+<h2 class="text-xl font-bold">Top Loyal Customers</h2>
+<span class="material-symbols-outlined text-slate-400 cursor-pointer">more_horiz</span>
+</div>
+<div class="bg-white dark:bg-background-dark rounded-xl border border-primary/10 overflow-hidden shadow-sm">
+<div class="divide-y divide-primary/5">
+<!-- Customer Row 1 -->
+<div class="p-4 flex items-center gap-3 hover:bg-primary/5 transition-colors cursor-pointer">
+<img alt="" class="size-10 rounded-full" data-alt="Portrait of a loyal male customer" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDLDT3fybAegy_8_OEHMW3tevSo09fjl0WgpaxG5ay2J5qZyILR0Um-EQmMVrp6mL1mmcJt57rK2J0lpqz7ulb4ed-TbrAuCDoBaHecd_dnWCA4sVfbDsrRT746wiwCWfsyi0M2B7h368a2wmKZ_bxwPuNQJSTY31cOEErmbiewMpbhZxw8ZVe9cNn59Ylz1d7LImo3rnAx9vyKhvncBUp_qmSMWj4f1VfJVWhjENpdWl0a-2gnee0p5cPz0uID1RsQpW1gIlPSgFnU"/>
+<div class="flex-1 min-w-0">
+<h5 class="text-sm font-bold truncate">David Chen</h5>
+<p class="text-xs text-slate-500">42 Orders</p>
+</div>
+<div class="text-right">
+<p class="text-sm font-black text-primary">8,450</p>
+<p class="text-[10px] font-medium text-slate-400 uppercase tracking-tighter">pts</p>
+</div>
+</div>
+<!-- Customer Row 2 -->
+<div class="p-4 flex items-center gap-3 hover:bg-primary/5 transition-colors cursor-pointer">
+<img alt="" class="size-10 rounded-full" data-alt="Portrait of a loyal female customer" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBNTdi8C42vTyXeeFce_E7uv2rKGz7MnOLmGeW6Q6Wbebn3hXmCLpkBO8nER4rJNpSy4471s7twgbio0bLX9rGrJwTRa0VGl5v02v2hX_ZSwrag_B2T18ssn6jr-_c2XzvZ_sBBwc1qW3kl2RUsm97qSSmMoQDg53QBGCCPtfOmCkBYVsPWROkZyQWHHELXenU3jPAATCEz_1ztLCwmo33-epRjvtUiiHIojdaV4ma8KNvo3nWFzOmSR3gHE0dflDLN0ka0gSRddW7u"/>
+<div class="flex-1 min-w-0">
+<h5 class="text-sm font-bold truncate">Sarah Johnson</h5>
+<p class="text-xs text-slate-500">38 Orders</p>
+</div>
+<div class="text-right">
+<p class="text-sm font-black text-primary">7,120</p>
+<p class="text-[10px] font-medium text-slate-400 uppercase tracking-tighter">pts</p>
+</div>
+</div>
+<!-- Customer Row 3 -->
+<div class="p-4 flex items-center gap-3 hover:bg-primary/5 transition-colors cursor-pointer">
+<img alt="" class="size-10 rounded-full" data-alt="Portrait of a loyal male customer" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDXUc4nZUio3Nc_GCBfc1rIEIi9oH7Zqxj15XE-bYHdbJxFmpieuyO970HsjGJeNvfWUVR4XpIDH_aflRexZPZWtpE5WVAZiqjDQT1U18sLy0ldCKZvhoj_UJBhr5DJBmMe-CACO4y9XQ8d7f-1y--VwxAtAphih1erTt7idxPWWEIfbOZHDlWOIAOyAXLpA5WoEl6xLCOQL-Uauu7ugt16UW8T2LDdNVvaqoBvEXZ9VyhMUBKEhTnE_U8nHO6NLlNvSa0W1IhGQ85K"/>
+<div class="flex-1 min-w-0">
+<h5 class="text-sm font-bold truncate">Marcus Williams</h5>
+<p class="text-xs text-slate-500">31 Orders</p>
+</div>
+<div class="text-right">
+<p class="text-sm font-black text-primary">6,550</p>
+<p class="text-[10px] font-medium text-slate-400 uppercase tracking-tighter">pts</p>
+</div>
+</div>
+<!-- Customer Row 4 -->
+<div class="p-4 flex items-center gap-3 hover:bg-primary/5 transition-colors cursor-pointer">
+<img alt="" class="size-10 rounded-full" data-alt="Portrait of a loyal female customer" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDKIZSJ1SYiOETi4NFQlMJX8AWigFhZ9ouaqSvpwYzrlqJJxUlmEhdbQvFy5_BXC-sfQchXOZ_cpfcAVXaNQbFtmMexW2ykwD2ostGyYg762BbLNKL0fhtc8bngdz_OHzwGlWvq8Ty-HJJ7CAu-MzaZEeDtvIaDKuk5jitG2NpuHJVHyySIXMOhHEVB033FeQJyUvtFLNxFqz_o9__hod0o0h0OSMTnphtjnsN6QoCArQYrAr_acw404EFFl5w5OE-0C8WG-yMQiwGM"/>
+<div class="flex-1 min-w-0">
+<h5 class="text-sm font-bold truncate">Elena Rodriguez</h5>
+<p class="text-xs text-slate-500">29 Orders</p>
+</div>
+<div class="text-right">
+<p class="text-sm font-black text-primary">5,980</p>
+<p class="text-[10px] font-medium text-slate-400 uppercase tracking-tighter">pts</p>
+</div>
+</div>
+</div>
+<button class="w-full py-4 text-xs font-bold text-slate-500 bg-slate-50 hover:bg-slate-100 transition-colors uppercase tracking-widest border-t border-primary/5">
+                                Full Ranking Table
+                            </button>
+</div>
+<!-- Points Redeemed Trend Chart Placeholder -->
+<div class="bg-primary/5 rounded-xl p-6 border border-primary/10">
+<h4 class="text-sm font-bold mb-4">Weekly Redemption Trend</h4>
+<div class="flex items-end justify-between h-24 gap-1">
+<div class="bg-primary/40 w-full rounded-t-sm" style="height: 40%" title="Mon"></div>
+<div class="bg-primary/40 w-full rounded-t-sm" style="height: 60%" title="Tue"></div>
+<div class="bg-primary/40 w-full rounded-t-sm" style="height: 45%" title="Wed"></div>
+<div class="bg-primary w-full rounded-t-sm shadow-lg shadow-primary/20" style="height: 90%" title="Thu"></div>
+<div class="bg-primary/40 w-full rounded-t-sm" style="height: 70%" title="Fri"></div>
+<div class="bg-primary/40 w-full rounded-t-sm" style="height: 85%" title="Sat"></div>
+<div class="bg-primary/40 w-full rounded-t-sm" style="height: 55%" title="Sun"></div>
+</div>
+<div class="flex justify-between mt-2 text-[10px] text-slate-400 font-bold uppercase tracking-tighter">
+<span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

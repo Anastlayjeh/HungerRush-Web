@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>HungerRush | Customer Reviews</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ff7b47",
+                        "background-light": "#f8f6f5",
+                        "background-dark": "#23150f",
+                    },
+                    fontFamily: {
+                        "display": ["Work Sans"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Work Sans', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .filled-star { font-variation-settings: 'FILL' 1; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen">
+<div class="flex h-screen overflow-hidden">
+<!-- Sidebar Navigation -->
+<aside class="w-64 border-r border-primary/10 bg-white dark:bg-background-dark/50 flex flex-col shrink-0">
+<div class="p-6 flex items-center gap-3">
+<div class="bg-primary size-10 rounded-lg flex items-center justify-center text-white">
+<span class="material-symbols-outlined">restaurant</span>
+</div>
+<div>
+<h1 class="text-slate-900 dark:text-white text-base font-bold leading-none">HungerRush</h1>
+<p class="text-primary text-xs font-medium">Restaurant Management</p>
+</div>
+</div>
+<nav class="flex-1 px-4 py-4 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="text-sm font-medium">Orders</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">menu_book</span>
+<span class="text-sm font-medium">Menu</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">videocam</span>
+<span class="text-sm font-medium">Videos</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary text-white shadow-lg shadow-primary/20" href="#">
+<span class="material-symbols-outlined filled-star">star</span>
+<span class="text-sm font-medium">Reviews</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">card_membership</span>
+<span class="text-sm font-medium">Loyalty</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">monitoring</span>
+<span class="text-sm font-medium">Analytics</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-sm font-medium">Settings</span>
+</a>
+</nav>
+<div class="p-4 border-t border-primary/10">
+<div class="flex items-center gap-3 px-3 py-2 rounded-xl bg-primary/5">
+<div class="size-10 rounded-full bg-slate-300 overflow-hidden bg-cover bg-center" data-alt="Profile picture of the store manager Alex Miller" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCfno-lRT1a7iZbsWEDWJ6YO-jEyArfY--xT5lnlmtZpoF8YE1UVYt2SPiEeQPGzdyIOCs_eq0On-YJNoEMGn-F7q5A7RfjJ_iMkwf2xmPUgXMcx-Zm-7yt6MUdIYEk1HGi6TIx6-AF81MTF4iPym1SWLEjVzxCAEGjxp2IkQpmuCjBqpqbOAi6YoPnmNVWXYFUuerZ7q3At5nv3xO_WLmzSvE-OhQslsR5lB_g-IvwEqq3eBXurgMq23NftDIFoywM9skawWxjV540')"></div>
+<div class="flex-1 min-w-0">
+<p class="text-sm font-bold truncate">Alex Miller</p>
+<p class="text-xs text-slate-500 truncate">Store Manager</p>
+</div>
+<span class="material-symbols-outlined text-slate-400 text-sm">logout</span>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 overflow-y-auto scroll-smooth">
+<div class="max-w-5xl mx-auto p-8">
+<!-- Header -->
+<header class="mb-8 flex justify-between items-end">
+<div>
+<h2 class="text-3xl font-black tracking-tight mb-2">Customer Reviews</h2>
+<p class="text-slate-500 dark:text-slate-400">Manage and respond to your restaurant feedback in real-time.</p>
+</div>
+<div class="flex gap-2">
+<button class="flex items-center gap-2 px-4 py-2 border border-primary/20 rounded-lg hover:bg-primary/5 transition-colors">
+<span class="material-symbols-outlined text-sm">download</span>
+<span class="text-sm font-semibold">Export</span>
+</button>
+</div>
+</header>
+<!-- Summary Card -->
+<section class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+<div class="lg:col-span-1 bg-white dark:bg-background-dark p-6 rounded-xl shadow-sm border border-primary/10 flex flex-col items-center justify-center text-center">
+<p class="text-5xl font-black text-primary mb-2">4.8</p>
+<div class="flex gap-0.5 text-primary mb-3">
+<span class="material-symbols-outlined filled-star">star</span>
+<span class="material-symbols-outlined filled-star">star</span>
+<span class="material-symbols-outlined filled-star">star</span>
+<span class="material-symbols-outlined filled-star">star</span>
+<span class="material-symbols-outlined filled-star">star_half</span>
+</div>
+<p class="text-sm font-medium text-slate-500">Based on 1,248 reviews</p>
+</div>
+<div class="lg:col-span-2 bg-white dark:bg-background-dark p-6 rounded-xl shadow-sm border border-primary/10">
+<div class="space-y-3">
+<div class="grid grid-cols-[24px_1fr_48px] items-center gap-4">
+<span class="text-sm font-bold">5</span>
+<div class="h-2.5 w-full bg-primary/10 rounded-full overflow-hidden">
+<div class="h-full bg-primary" style="width: 70%"></div>
+</div>
+<span class="text-xs text-slate-500 text-right">70%</span>
+</div>
+<div class="grid grid-cols-[24px_1fr_48px] items-center gap-4">
+<span class="text-sm font-bold">4</span>
+<div class="h-2.5 w-full bg-primary/10 rounded-full overflow-hidden">
+<div class="h-full bg-primary" style="width: 20%"></div>
+</div>
+<span class="text-xs text-slate-500 text-right">20%</span>
+</div>
+<div class="grid grid-cols-[24px_1fr_48px] items-center gap-4">
+<span class="text-sm font-bold">3</span>
+<div class="h-2.5 w-full bg-primary/10 rounded-full overflow-hidden">
+<div class="h-full bg-primary" style="width: 5%"></div>
+</div>
+<span class="text-xs text-slate-500 text-right">5%</span>
+</div>
+<div class="grid grid-cols-[24px_1fr_48px] items-center gap-4">
+<span class="text-sm font-bold">2</span>
+<div class="h-2.5 w-full bg-primary/10 rounded-full overflow-hidden">
+<div class="h-full bg-primary" style="width: 3%"></div>
+</div>
+<span class="text-xs text-slate-500 text-right">3%</span>
+</div>
+<div class="grid grid-cols-[24px_1fr_48px] items-center gap-4">
+<span class="text-sm font-bold">1</span>
+<div class="h-2.5 w-full bg-primary/10 rounded-full overflow-hidden">
+<div class="h-full bg-primary" style="width: 2%"></div>
+</div>
+<span class="text-xs text-slate-500 text-right">2%</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Filters -->
+<div class="flex flex-wrap items-center gap-2 mb-6">
+<button class="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold">All Reviews</button>
+<button class="px-4 py-2 rounded-lg bg-white dark:bg-background-dark border border-primary/10 hover:border-primary text-sm font-semibold transition-colors">5 Stars</button>
+<button class="px-4 py-2 rounded-lg bg-white dark:bg-background-dark border border-primary/10 hover:border-primary text-sm font-semibold transition-colors">4 Stars</button>
+<button class="px-4 py-2 rounded-lg bg-white dark:bg-background-dark border border-primary/10 hover:border-primary text-sm font-semibold transition-colors">3 Stars</button>
+<button class="px-4 py-2 rounded-lg bg-white dark:bg-background-dark border border-primary/10 hover:border-primary text-sm font-semibold transition-colors">2 Stars</button>
+<button class="px-4 py-2 rounded-lg bg-white dark:bg-background-dark border border-primary/10 hover:border-primary text-sm font-semibold transition-colors">1 Star</button>
+</div>
+<!-- Reviews List -->
+<div class="space-y-4">
+<!-- Review Card 1 -->
+<div class="bg-white dark:bg-background-dark p-6 rounded-xl shadow-sm border border-primary/5 flex gap-4 items-start hover:shadow-md transition-shadow">
+<div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary">person</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-2">
+<div>
+<h4 class="font-bold text-lg leading-tight">Sarah Johnson</h4>
+<div class="flex items-center gap-2">
+<div class="flex text-primary">
+<span class="material-symbols-outlined text-sm filled-star">star</span>
+<span class="material-symbols-outlined text-sm filled-star">star</span>
+<span class="material-symbols-outlined text-sm filled-star">star</span>
+<span class="material-symbols-outlined text-sm filled-star">star</span>
+<span class="material-symbols-outlined text-sm filled-star">star</span>
+</div>
+<span class="text-xs text-slate-400">• 2 hours ago</span>
+</div>
+</div>
+<button class="text-primary hover:underline text-sm font-bold">Reply</button>
+</div>
+<p class="text-slate-600 dark:text-slate-400 leading-relaxed mb-4">
+                            The pepperoni pizza was absolutely divine! Crust was perfectly thin and crispy, and it arrived much faster than expected. HungerRush never disappoints!
+                        </p>
+<div class="flex gap-2">
+<div class="w-20 h-20 rounded-lg bg-slate-100 overflow-hidden">
+<img alt="Review photo" class="object-cover" data-alt="A photo of a delicious pepperoni pizza" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB2WibSQcndQUrqjoTMi5sTNfHrxKRb8QlNkDlGy8FLS1FdELgatTSdzsuzEjCfnJU-zWefOK6UBwNNHzo5MMM_fqPTPrTYJvaLiZ795z_6rgvu7whATLu-Xy5vbh9P1uFJ3I0WiKCt_RMQOhJRa81b0dK0G7L820MqfjCP1oMG3gpESC2s6B--iGMX6vRrRWrsTg65S33kyEJV3q5MiqBZa7fgt5WpbGoVtYs26mE-tj5AbR-XVl5WQ6GWL9adzRdmr9XFinEGR7G0"/>
+</div>
+</div>
+</div>
+</div>
+<!-- Review Card 2 -->
+<div class="bg-white dark:bg-background-dark p-6 rounded-xl shadow-sm border border-primary/5 flex gap-4 items-start hover:shadow-md transition-shadow">
+<div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary">person</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-2">
+<div>
+<h4 class="font-bold text-lg leading-tight">Michael Chen</h4>
+<div class="flex items-center gap-2">
+<div class="flex text-primary">
+<span class="material-symbols-outlined text-sm filled-star">star</span>
+<span class="material-symbols-outlined text-sm filled-star">star</span>
+<span class="material-symbols-outlined text-sm filled-star">star</span>
+<span class="material-symbols-outlined text-sm filled-star">star</span>
+<span class="material-symbols-outlined text-sm">star</span>
+</div>
+<span class="text-xs text-slate-400">• Yesterday</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-xs font-bold text-green-500 flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">check_circle</span> Replied
+                                </span>
+<button class="text-primary hover:underline text-sm font-bold">View</button>
+</div>
+</div>
+<p class="text-slate-600 dark:text-slate-400 leading-relaxed">
+                            Good burger, but the fries were a bit cold when they arrived. Hopefully just a one-time thing. The packaging was neat and professional though.
+                        </p>
+<!-- Owner Reply -->
+<div class="mt-4 p-4 rounded-lg bg-primary/5 border-l-2 border-primary">
+<div class="flex items-center gap-2 mb-1">
+<span class="text-xs font-bold uppercase tracking-wider text-primary">HungerRush Admin</span>
+<span class="text-[10px] text-slate-400">12h ago</span>
+</div>
+<p class="text-sm text-slate-600 dark:text-slate-400 italic">
+                                "Hi Michael, we're sorry about the fries! We're looking into our thermal bag inventory to ensure this doesn't happen again. We'd like to send you a coupon for your next order!"
+                            </p>
+</div>
+</div>
+</div>
+<!-- Review Card 3 -->
+<div class="bg-white dark:bg-background-dark p-6 rounded-xl shadow-sm border border-primary/5 flex gap-4 items-start hover:shadow-md transition-shadow">
+<div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary">person</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-2">
+<div>
+<h4 class="font-bold text-lg leading-tight">Emma Williams</h4>
+<div class="flex items-center gap-2">
+<div class="flex text-primary">
+<span class="material-symbols-outlined text-sm filled-star">star</span>
+<span class="material-symbols-outlined text-sm filled-star">star</span>
+<span class="material-symbols-outlined text-sm filled-star">star</span>
+<span class="material-symbols-outlined text-sm filled-star">star</span>
+<span class="material-symbols-outlined text-sm filled-star">star</span>
+</div>
+<span class="text-xs text-slate-400">• Oct 24, 2023</span>
+</div>
+</div>
+<button class="text-primary hover:underline text-sm font-bold">Reply</button>
+</div>
+<p class="text-slate-600 dark:text-slate-400 leading-relaxed">
+                            The vegan pasta options are surprisingly good. I love the variety you guys have added lately. Five stars well deserved for being inclusive and delicious!
+                        </p>
+</div>
+</div>
+<!-- Pagination -->
+<div class="flex justify-center items-center gap-2 mt-8 py-4">
+<button class="w-10 h-10 rounded-lg flex items-center justify-center border border-primary/10 hover:bg-primary/5">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="w-10 h-10 rounded-lg bg-primary text-white font-bold">1</button>
+<button class="w-10 h-10 rounded-lg font-bold hover:bg-primary/5">2</button>
+<button class="w-10 h-10 rounded-lg font-bold hover:bg-primary/5">3</button>
+<span class="px-2">...</span>
+<button class="w-10 h-10 rounded-lg font-bold hover:bg-primary/5">12</button>
+<button class="w-10 h-10 rounded-lg flex items-center justify-center border border-primary/10 hover:bg-primary/5">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

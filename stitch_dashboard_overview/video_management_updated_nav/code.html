@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>HungerRush Creator Hub</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              colors: {
+                "primary": "#ff7b47",
+                "background-light": "#f8f6f5",
+                "background-dark": "#23150f",
+              },
+              fontFamily: {
+                "display": ["Work Sans"]
+              },
+              borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+            },
+          },
+        }
+    </script>
+<style>
+        body { font-family: 'Work Sans', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen">
+<div class="flex h-screen overflow-hidden">
+<!-- Left Sidebar Navigation -->
+<aside class="w-64 border-r border-primary/10 bg-white dark:bg-background-dark/50 flex flex-col">
+<div class="p-6 flex items-center gap-3">
+<div class="bg-primary size-10 rounded-lg flex items-center justify-center text-white">
+<span class="material-symbols-outlined">restaurant</span>
+</div>
+<div>
+<h1 class="text-slate-900 dark:text-white text-base font-bold leading-none">HungerRush</h1>
+<p class="text-primary text-xs font-medium">Restaurant Management</p>
+</div>
+</div>
+<nav class="flex-1 px-4 py-4 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="text-sm font-medium">Orders</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">menu_book</span>
+<span class="text-sm font-medium">Menu</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary text-white" href="#">
+<span class="material-symbols-outlined">videocam</span>
+<span class="text-sm font-medium">Videos</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">star</span>
+<span class="text-sm font-medium">Reviews</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">card_membership</span>
+<span class="text-sm font-medium">Loyalty</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">monitoring</span>
+<span class="text-sm font-medium">Analytics</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-sm font-medium">Settings</span>
+</a>
+</nav>
+<div class="p-4 border-t border-primary/10">
+<div class="flex items-center gap-3 px-3 py-2 rounded-xl bg-primary/5">
+<div class="size-10 rounded-full bg-slate-300 overflow-hidden bg-cover bg-center" data-alt="Profile picture of the restaurant manager" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCfno-lRT1a7iZbsWEDWJ6YO-jEyArfY--xT5lnlmtZpoF8YE1UVYt2SPiEeQPGzdyIOCs_eq0On-YJNoEMGn-F7q5A7RfjJ_iMkwf2xmPUgXMcx-Zm-7yt6MUdIYEk1HGi6TIx6-AF81MTF4iPym1SWLEjVzxCAEGjxp2IkQpmuCjBqpqbOAi6YoPnmNVWXYFUuerZ7q3At5nv3xO_WLmzSvE-OhQslsR5lB_g-IvwEqq3eBXurgMq23NftDIFoywM9skawWxjV540')"></div>
+<div class="flex-1 min-w-0">
+<p class="text-sm font-bold truncate">Alex Miller</p>
+<p class="text-xs text-slate-500 truncate">Store Manager</p>
+</div>
+<span class="material-symbols-outlined text-slate-400 text-sm">logout</span>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col overflow-hidden">
+<!-- Header -->
+<header class="h-16 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-background-dark/80 backdrop-blur-md flex items-center justify-between px-8 z-10">
+<div class="flex items-center gap-4">
+<h1 class="text-xl font-bold">Video Feed Management</h1>
+<div class="h-4 w-px bg-slate-300 dark:bg-slate-700"></div>
+<div class="flex gap-4">
+<button class="text-sm font-bold text-primary border-b-2 border-primary pb-1">All Videos</button>
+<button class="text-sm font-medium text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">Scheduled</button>
+<button class="text-sm font-medium text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">Drafts</button>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+<input class="pl-10 pr-4 py-1.5 bg-slate-100 dark:bg-slate-800 border-none rounded-lg text-sm w-64 focus:ring-2 focus:ring-primary/50 transition-all" placeholder="Search content..." type="text"/>
+</div>
+<button class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-sm">cloud_upload</span>
+                        Upload Video
+                    </button>
+</div>
+</header>
+<!-- Workspace -->
+<div class="flex-1 flex overflow-hidden">
+<!-- Video Grid Column -->
+<section class="flex-1 overflow-y-auto p-6 bg-slate-50/50 dark:bg-transparent">
+<div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+<!-- Video Card 1 (Active) -->
+<div class="relative aspect-[9/16] rounded-xl overflow-hidden group cursor-pointer ring-4 ring-primary ring-offset-2 dark:ring-offset-background-dark">
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Vertical video of a sizzling steak being seasoned" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDnuKDYUEqamxwng05w-v8EADZkD0rKkUG2BflFyeqLk68KdXPEINjftbArltQuCKJmQ-jAR-K4jvfRmcRQTASRtVHwrluqXimUbKVrzEIv8FemDmIUI94VcrQa0FGxxDnxzcCXyTKFgQUnXYzdAiZN1ODtKtFrcYz1Y9jEkaiDoCFp0arYZ7RgqIeg5nGNec27ISPVgdgwAVi_IhPcUJRkVM8P2kyfmARtbXe9eDORerMDIUUKzaNHfqzYkWKjUpsvh646f4enHZZe')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+<div class="absolute bottom-4 left-4 right-4 text-white">
+<div class="flex items-center gap-4 mb-1">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">visibility</span>
+<span class="text-xs font-bold">12.4k</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">favorite</span>
+<span class="text-xs font-bold">3.2k</span>
+</div>
+</div>
+<p class="text-xs font-medium line-clamp-2">Perfect Sizzling Ribeye Technique #SteakLovers</p>
+</div>
+<div class="absolute top-2 right-2 px-2 py-1 bg-primary text-[10px] font-black uppercase rounded text-white tracking-wider">Active</div>
+</div>
+<!-- Video Card 2 -->
+<div class="relative aspect-[9/16] rounded-xl overflow-hidden group cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all">
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Short video thumbnail showing fresh pasta preparation" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuA5jMIw9316EtJXQ6aiAH7cSxHdS044Drb7u8Rlcn9nyTtuTRa4UHQYuj5lDAbiZ5j1jzQr95oBAbUGeWt-Yumc0sjJ91EW1Ms8xNcEAbSz-wD-i7IRJhOP2Wba1rsGOahOiuYAuUAKHGhfrw5DOm5jMeksf1eRRdbbAsVQSr2WV1V8x8xgQy9rGeN5hGiylp4Wsojd2sxdgnLkFoiMguSvZFYCp9qQbMDH2LvRCiFCJ65CCTwNOUmoRfZltp_vLh7G1135g9oVkoaU')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60 group-hover:opacity-100 transition-opacity"></div>
+<div class="absolute bottom-4 left-4 right-4 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+<div class="flex items-center gap-4 mb-1">
+<div class="flex items-center gap-1 text-xs font-bold">
+<span class="material-symbols-outlined text-xs">visibility</span> 8.1k
+                                    </div>
+<div class="flex items-center gap-1 text-xs font-bold">
+<span class="material-symbols-outlined text-xs">favorite</span> 1.2k
+                                    </div>
+</div>
+</div>
+</div>
+<!-- Video Card 3 -->
+<div class="relative aspect-[9/16] rounded-xl overflow-hidden group cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all">
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Vertical video of a vibrant summer salad being tossed" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAtJdyRrs-3PftUfary003dYiu4Naq4nKjICm-BsSPrUpv3GFFyTmJZhPBIMk6q9mlZxLCfHegsoykj643I-Wqn-RvzHn4DPtb2SYj4y7nMneAzuXxMrbPsji7kl4C11c3JuLpAg8lpG6jHZUqN3uh7xRx8o3vQGUs-9PAyyaeeOuEdb9DD5ax8J_ghrgrV9M5Jkmy_44EmYpH5KU7YOQi2PO5SDeVIY4qoFQzDaOiwvOcCHGlwB89QcwzpuYUBMlJc_5CnH5PiMNQe')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60 group-hover:opacity-100 transition-opacity"></div>
+<div class="absolute bottom-4 left-4 right-4 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+<div class="flex items-center gap-4 mb-1 text-xs font-bold">
+<span class="material-symbols-outlined text-xs">visibility</span> 4.5k
+                                </div>
+</div>
+</div>
+<!-- Video Card 4 -->
+<div class="relative aspect-[9/16] rounded-xl overflow-hidden group cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all">
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Gooey chocolate lava cake being broken with a spoon" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBO2jR1yt9g9DTA3cOLpn3x0v8h27vcyGiDGKuB-R4oWfGy_pWZ1A7sfz0DrmabmQ2GLoKhLxsIgtlbOAL_tcSOTRLsg79CyW8lZhSfbnaR_CvctLFd1wp4Nk8Nl_85WykDkpLhaPG6VEtfROQiqYLF_shbKoMcns26PBnC9phGfgYscS4CwKFFubZ1XlofHBHTvaVMgl9n50EX08xE6eAQ2sFojZFnYr4wpovgET3yZ0C4HYwbJANsZNp7pNcNh7-BBTgLerhd2151')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60 group-hover:opacity-100 transition-opacity"></div>
+</div>
+<!-- Add Video Placeholder -->
+<button class="aspect-[9/16] rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-primary hover:border-primary transition-all group">
+<span class="material-symbols-outlined text-4xl">add_circle</span>
+<span class="text-sm font-bold">New Post</span>
+</button>
+</div>
+</section>
+<!-- Details Panel -->
+<aside class="w-[420px] border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-background-dark/40 overflow-y-auto p-6 space-y-8">
+<div>
+<h3 class="text-xs font-black uppercase text-slate-400 tracking-widest mb-4">Video Details</h3>
+<div class="space-y-4">
+<div>
+<label class="block text-xs font-bold text-slate-500 mb-1">Title</label>
+<input class="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-lg text-sm font-medium focus:ring-primary" type="text" value="Perfect Sizzling Ribeye Technique"/>
+</div>
+<div>
+<label class="block text-xs font-bold text-slate-500 mb-1">Description</label>
+<textarea class="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-lg text-sm focus:ring-primary" rows="3">Master the crust on your ribeye with our signature dry-rub and cast iron method. #SteakLovers #GrillMaster #Foodie</textarea>
+</div>
+<div>
+<label class="block text-xs font-bold text-slate-500 mb-1">Linked Menu Item</label>
+<div class="flex items-center gap-3 p-3 bg-primary/5 border border-primary/20 rounded-xl">
+<div class="size-12 rounded-lg bg-cover bg-center" data-alt="Close up photo of a cooked ribeye steak" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAdRZv_l1X2Wpx_s_3n4dFqoX3r8oFH_n-NRvLrWCraY92KAKGTrTquBpk1MVLSoF1btAuB7JpuQr9lYplabkY4miYThz_gNA1IPhDZvwRKaJGK8NuTJoGO81idVKSp2f9nHHhaKZdrmQkyBjpjgGNuurvcACNiFDRNQMjS4bo3utKVjrKBeSRZkMH64N_AMibR3QB27oMTAVbH1U_KUjcSPUvaRgY4Kg91S7L37qvhmlA2qJKy5o7dMTtAKrqHcGdfbe3ZQfN3PN4T')"></div>
+<div class="flex-1">
+<p class="text-sm font-bold">Signature Ribeye Steak</p>
+<p class="text-xs text-slate-500">$34.99 • In Stock</p>
+</div>
+<button class="text-primary hover:text-primary/70">
+<span class="material-symbols-outlined">swap_horiz</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<div class="pt-8 border-t border-slate-200 dark:border-slate-800">
+<h3 class="text-xs font-black uppercase text-slate-400 tracking-widest mb-4">Performance Analytics</h3>
+<div class="grid grid-cols-2 gap-4 mb-6">
+<div class="p-4 bg-slate-100 dark:bg-slate-800 rounded-xl">
+<p class="text-xs text-slate-500 font-bold mb-1">Orders Generated</p>
+<p class="text-2xl font-black text-primary">142</p>
+<p class="text-[10px] text-green-500 font-bold flex items-center gap-0.5 mt-1">
+<span class="material-symbols-outlined text-[10px]">trending_up</span> 12%
+                                </p>
+</div>
+<div class="p-4 bg-slate-100 dark:bg-slate-800 rounded-xl">
+<p class="text-xs text-slate-500 font-bold mb-1">Revenue</p>
+<p class="text-2xl font-black text-slate-900 dark:text-white">$4.9k</p>
+<p class="text-[10px] text-green-500 font-bold flex items-center gap-0.5 mt-1">
+<span class="material-symbols-outlined text-[10px]">trending_up</span> 8.4%
+                                </p>
+</div>
+</div>
+<div class="space-y-4">
+<div class="flex items-end justify-between gap-1 h-32 px-2">
+<div class="flex-1 bg-primary/20 rounded-t h-[40%]"></div>
+<div class="flex-1 bg-primary/20 rounded-t h-[60%]"></div>
+<div class="flex-1 bg-primary/40 rounded-t h-[55%]"></div>
+<div class="flex-1 bg-primary/40 rounded-t h-[80%]"></div>
+<div class="flex-1 bg-primary rounded-t h-[95%]"></div>
+<div class="flex-1 bg-primary/60 rounded-t h-[70%]"></div>
+<div class="flex-1 bg-primary/30 rounded-t h-[45%]"></div>
+</div>
+<div class="flex justify-between text-[10px] text-slate-400 font-bold px-1 uppercase tracking-tighter">
+<span>Mon</span>
+<span>Tue</span>
+<span>Wed</span>
+<span>Thu</span>
+<span>Fri</span>
+<span>Sat</span>
+<span>Sun</span>
+</div>
+<p class="text-center text-xs font-bold text-slate-400 pt-2">Orders Generated from Video (Weekly)</p>
+</div>
+</div>
+<div class="flex gap-3 pt-4">
+<button class="flex-1 py-3 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-bold rounded-xl text-sm transition-transform active:scale-95">Save Changes</button>
+<button class="px-3 py-3 border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-red-500 rounded-xl transition-colors">
+<span class="material-symbols-outlined">delete</span>
+</button>
+</div>
+</aside>
+</div>
+</main>
+</div>
+</body></html>

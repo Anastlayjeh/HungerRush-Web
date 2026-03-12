@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ff7b47",
+                        "background-light": "#f8f6f5",
+                        "background-dark": "#23150f",
+                    },
+                    fontFamily: {
+                        "display": ["Work Sans"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Work Sans', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
+<div class="flex h-screen overflow-hidden">
+<!-- Sidebar Navigation -->
+<aside class="w-64 border-r border-primary/10 bg-white dark:bg-slate-900 flex flex-col shrink-0">
+<div class="p-6 flex items-center gap-3">
+<div class="bg-primary size-10 rounded-lg flex items-center justify-center text-white">
+<span class="material-symbols-outlined">restaurant</span>
+</div>
+<div>
+<h1 class="text-slate-900 dark:text-white text-base font-bold leading-none">HungerRush</h1>
+<p class="text-primary text-xs font-medium">Restaurant Management</p>
+</div>
+</div>
+<nav class="flex-1 px-4 py-4 space-y-1"><a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="text-sm font-medium">Orders</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">menu_book</span>
+<span class="text-sm font-medium">Menu</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg bg-primary text-white shadow-md shadow-primary/20" href="#">
+<span class="material-symbols-outlined">videocam</span>
+<span class="text-sm font-semibold">Videos</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">star</span>
+<span class="text-sm font-medium">Reviews</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">card_membership</span>
+<span class="text-sm font-medium">Loyalty</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">monitoring</span>
+<span class="text-sm font-medium">Analytics</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-sm font-medium">Settings</span>
+</a></nav>
+<div class="p-4 border-t border-primary/10">
+<div class="flex items-center gap-3 px-3 py-2 rounded-xl bg-primary/5">
+<div class="size-10 rounded-full bg-slate-300 overflow-hidden bg-cover bg-center" data-alt="Profile picture of the store manager" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAP0I14UhgLsbtIC9t3WQ8WVGV1e0XbMnuB75MwBxlNyFX9U1clan1RvbslKRLfdtA4xlOr_prSOc55f26W3bV2WH_KytYKasnDg_Y-FoWNan5nLWfb0YiUMHbbeYkCjtReWLYsA-TgS6p-Yi07Yj1lz8D3RR6jPg6BXFaqOwE9GDkT2F-MqZOJEKvNwP3G42C6ydsYaUYjRQYDL4ejaR2MAl4US8ioFIfjRJdc4WV7Eys37JwHmfCWkyknPNGwqeZ1OS28cFZmPRBI')"></div>
+<div class="flex-1 min-w-0">
+<p class="text-sm font-bold truncate">Alex Miller</p>
+<p class="text-xs text-slate-500 truncate">Store Manager</p>
+</div>
+<span class="material-symbols-outlined text-slate-400 text-sm">logout</span>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 flex flex-col overflow-hidden">
+<!-- Header -->
+<header class="h-16 border-b border-primary/10 bg-white dark:bg-slate-900 flex items-center justify-between px-8 shrink-0">
+<div class="flex items-center gap-4 flex-1">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+<input class="pl-10 pr-4 py-2 bg-background-light dark:bg-slate-800 border-none rounded-lg focus:ring-2 focus:ring-primary w-64 text-sm" placeholder="Search orders, videos, menu..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="size-10 flex items-center justify-center rounded-lg bg-background-light dark:bg-slate-800 text-slate-600 dark:text-slate-400 relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 size-2 bg-primary rounded-full border-2 border-white dark:border-slate-800"></span>
+</button>
+<button class="size-10 flex items-center justify-center rounded-lg bg-background-light dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+<span class="material-symbols-outlined">chat_bubble</span>
+</button>
+</div>
+</header>
+<!-- Scrollable Content -->
+<div class="flex-1 overflow-y-auto bg-background-light dark:bg-slate-900/50 p-8">
+<div class="max-w-6xl mx-auto">
+<!-- Page Header Actions -->
+<div class="flex items-center justify-between mb-8">
+<div>
+<button class="flex items-center gap-2 text-slate-500 hover:text-primary transition-colors text-sm font-medium mb-2">
+<span class="material-symbols-outlined text-sm">arrow_back</span>
+                                Back to Video Management
+                            </button>
+<h1 class="text-3xl font-bold text-slate-900 dark:text-white">Create Video Post</h1>
+</div>
+<div class="flex items-center gap-3">
+<button class="px-5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 font-semibold text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                                Save as Draft
+                            </button>
+<button class="px-5 py-2.5 rounded-xl bg-primary text-white font-semibold text-sm shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all">
+                                Publish to Feed
+                            </button>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- Left Column: Form & Upload -->
+<div class="lg:col-span-2 space-y-6">
+<!-- Upload Zone -->
+<div class="bg-white dark:bg-background-dark p-1 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+<div class="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-12 flex flex-col items-center justify-center bg-slate-50/50 dark:bg-slate-800/30">
+<div class="size-16 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4">
+<span class="material-symbols-outlined text-3xl">cloud_upload</span>
+</div>
+<h3 class="text-lg font-bold mb-1">Upload your video</h3>
+<p class="text-slate-500 text-sm mb-6 text-center">Drag and drop your video file here, or click to browse.<br/>Supported formats: MP4, MOV. Max size: 50MB.</p>
+<button class="px-6 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-bold shadow-sm hover:border-primary transition-colors">
+                                        Select File
+                                    </button>
+</div>
+</div>
+<!-- Post Details -->
+<div class="bg-white dark:bg-background-dark p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 space-y-6">
+<h2 class="text-xl font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">edit_note</span>
+                                    Video Details
+                                </h2>
+<div class="space-y-4">
+<div>
+<label class="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">Video Title</label>
+<input class="w-full p-3 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl focus:ring-primary/50 focus:border-primary" placeholder="e.g. Sizzling Summer Burger Special" type="text"/>
+</div>
+<div>
+<label class="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">Description</label>
+<textarea class="w-full p-3 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl focus:ring-primary/50 focus:border-primary" placeholder="Tell your customers about this video... Use #hashtags to trend!" rows="4"></textarea>
+<div class="mt-2 flex flex-wrap gap-2">
+<span class="px-2 py-1 bg-primary/10 text-primary text-xs font-medium rounded">#summer_vibes</span>
+<span class="px-2 py-1 bg-primary/10 text-primary text-xs font-medium rounded">#foodie</span>
+<span class="px-2 py-1 bg-primary/10 text-primary text-xs font-medium rounded">#burger_love</span>
+</div>
+</div>
+<div class="pt-2">
+<label class="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">Link to Menu Item</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+<select class="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl focus:ring-primary/50 focus:border-primary appearance-none">
+<option value="">Select a menu item for quick ordering</option>
+<option value="1">Double Cheese Blaze Burger</option>
+<option value="2">Crispy Buffalo Wings</option>
+<option value="3">Vegan Garden Salad</option>
+<option value="4">Zesty Fries with Dip</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">expand_more</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column: Mobile Preview -->
+<div class="lg:col-span-1">
+<div class="sticky top-8">
+<h2 class="text-sm font-bold uppercase tracking-widest text-slate-500 mb-4 px-2">Feed Preview</h2>
+<!-- Mobile Phone Frame -->
+<div class="relative mx-auto w-[280px] h-[580px] bg-slate-900 rounded-[3rem] border-[8px] border-slate-800 shadow-2xl overflow-hidden ring-1 ring-slate-900/10">
+<!-- Screen Content -->
+<div class="absolute inset-0 bg-slate-200 flex flex-col overflow-hidden">
+<!-- Video Preview Background -->
+<div class="relative flex-1 bg-cover bg-center" data-alt="Vertical video preview of a delicious burger" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBRc-3D2ZVf5rDcmV9kOhVmWlwkWCG2rnkW2SrIobDrgneitTJ-f6q7IiEAolTGkAH__yPkNcpIR-3sqhokUEEI2rvLQwlkW6Jv-Y6vJsP9G1bKfkX57-RcxlvMHllae32Wfwr12BpObpkTRCfz5tR2DV9fPrWiqQQ7GaBvpiK-ArdcSBCg7UWFRTqS3rQ3QPyyM415uslypVHLZ-1okzOunTwyfcRW4gWZyngCmIJAf5DJ89uwf8X94ZT_j4WOf9LtmZdIrQp64gju");'>
+<!-- Overlay Gradient -->
+<div class="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/80"></div>
+<!-- Status Bar (mock) -->
+<div class="flex justify-between px-6 pt-3 text-[10px] text-white font-medium">
+<span>9:41</span>
+<div class="flex gap-1">
+<span class="material-symbols-outlined !text-[12px]">signal_cellular_4_bar</span>
+<span class="material-symbols-outlined !text-[12px]">wifi</span>
+<span class="material-symbols-outlined !text-[12px]">battery_full</span>
+</div>
+</div>
+<!-- Interaction Sidebar -->
+<div class="absolute right-4 bottom-32 flex flex-col gap-5 text-white items-center">
+<div class="flex flex-col items-center">
+<span class="material-symbols-outlined !text-[28px] drop-shadow-md">favorite</span>
+<span class="text-[10px] font-bold">1.2k</span>
+</div>
+<div class="flex flex-col items-center">
+<span class="material-symbols-outlined !text-[28px] drop-shadow-md">chat_bubble</span>
+<span class="text-[10px] font-bold">84</span>
+</div>
+<div class="flex flex-col items-center">
+<span class="material-symbols-outlined !text-[28px] drop-shadow-md">share</span>
+<span class="text-[10px] font-bold">Share</span>
+</div>
+</div>
+<!-- Video Info Overlay -->
+<div class="absolute bottom-16 left-4 right-16 text-white space-y-1">
+<div class="flex items-center gap-2 mb-2">
+<div class="size-6 rounded-full bg-primary flex items-center justify-center text-[10px] font-bold border border-white">HR</div>
+<span class="text-xs font-bold">HungerRush</span>
+</div>
+<p class="text-xs font-medium line-clamp-2">Sizzling Summer Burger Special! Grab yours now while it lasts... #burger_love</p>
+</div>
+<!-- CTA Link -->
+<div class="absolute bottom-4 left-4 right-4 bg-primary text-white py-2 rounded-lg text-center text-[10px] font-bold shadow-lg">
+                                                ORDER NOW: Double Cheese Blaze...
+                                            </div>
+<!-- Home Bar -->
+<div class="absolute bottom-1 left-1/2 -translate-x-1/2 w-20 h-1 bg-white/40 rounded-full"></div>
+</div>
+</div>
+<!-- Speaker/Sensor Notch (mock) -->
+<div class="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-6 bg-slate-800 rounded-b-2xl"></div>
+</div>
+<p class="text-center text-xs text-slate-500 mt-4 italic">This is how your post will appear in the customer app</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>
