@@ -1,88 +1,46 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { bg } from "../utils/bg.js";
+import { api } from "../lib/api.js";
 
-const menuItems = [
-  {
-    title: "Spicy Chicken Burger",
-    price: "$12.99",
-    description: "Zesty fried chicken breast, jalapenos, and spicy mayo on a toasted bun.",
-    image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuA55eemX_b_rDY3V6bykDpd7WAywAuB_C-lIX3inBwe_U9cdOdFOaIe7PvNsf5BP0GMAjtFlfCjwf2ckEG0Os5wRhzgqbRqtJiJX9gy8qDiYt9LBHW6VQ95lijm8Yp61n7rXbtyc7Y_P7ivrosidB1kAL2qGt5oisHZBocmr8_9LuodLvTPGDAO5lmRmJHLx7Ph57YeSNfvUthy8o-IdfBvQZq6k423AszZvX4GZo1axnpMnOljOTXaQFTElKAzrFAuN2uhVf5fKBvU",
-    status: "AVAILABLE",
-    statusClass: "bg-green-100 dark:bg-green-900/30 text-green-600",
-    available: true,
-  },
-  {
-    title: "Double Beef BBQ",
-    price: "$15.50",
-    description: "Two prime beef patties, smoked cheddar, bacon, and tangy BBQ sauce.",
-    image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuBKEeXeZNCb8wLrS6oc4vZpFZOEkgWB9ptuN2EVBylNgfWXiXiOsVmDlC5ZqjIzIBxScNjuFyFib7tPKgHNY4PCeCBm1BpCfMQzrSYgsN4OKZadjTiXEdo4HKArqKHY4UgdSKZxnRW_2itolfPWqgEN09scjRWCwxetmVKiDAB4WPfdBKqglBft6mXykgOSZuI-7_gmGHwrqfXAz6kGGnsnzhHfX24spseazbuPHG4c-QH-igHTGCuQNkNuU2ANaiYOiuM1ocmZmUn_",
-    status: "AVAILABLE",
-    statusClass: "bg-green-100 dark:bg-green-900/30 text-green-600",
-    available: true,
-  },
-  {
-    title: "Truffle Fries",
-    price: "$6.99",
-    description:
-      "Golden fries tossed in truffle oil and garnished with parmesan and parsley.",
-    image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuBmjNDF09qenABQvipXKdSvei4V-zH8Sa4Ok6jMj5DZwSBWYfqomg0wgaRkXqbG9nz7I9chnz1_V3AcY6hgLPJ_kWkIDQokhKqzgb2cNdKsAtZR0DlzJxIxutxUufDS2TXkf7c7QqU39p6eybFnRQQPfPQ0EWcgj1jxCH2-npJLG3o01hPJBavYERpY6ePw0w_z6419WSCn0U17A6-bJg_zFVRY8sSo-A58SiSJS7nGJEC9BSoVEG05L0t5JPMzDvK1EHaySZj1maj1",
-    status: "AVAILABLE",
-    statusClass: "bg-green-100 dark:bg-green-900/30 text-green-600",
-    available: true,
-  },
-  {
-    title: "Giant Onion Rings",
-    price: "$5.50",
-    description:
-      "Beer-battered thick-cut onion rings served with ranch dipping sauce.",
-    image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuCsf2ACnowr7SHOsHOlJOarCqz0ruPEj_xC2upwRqLMlIZhAbvXXf3fz-qiiNJoO8BqVNpZsXtuhoBR1k0JXWDUCJdfxqm60s5S1gFpOzQld7e_sOqg16F1_1oKPVT5Dp4ckveiYxaHETQlyjDOlAlB2f4xwj8axlc1jxIE3Kv9EVX4vFwINeyghVHcFhrfm-0UnALbLaWPDJ90jmrF11_wdfNnDG_YcAL8ka_RMIG6rw2n6e-ItClKrkmW1IF4Q6f9_1nXxy0YF9QR",
-    status: "UNAVAILABLE",
-    statusClass: "bg-red-100 dark:bg-red-900/30 text-red-600",
-    available: false,
-    outOfStock: true,
-  },
-  {
-    title: "Cold Brew Cola",
-    price: "$3.50",
-    description:
-      "Artisanal craft cola made with real kola nuts and a hint of vanilla.",
-    image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuAjVruuaawfZZ7WGVgttTY17yYgpAw5U-4tcMv7XsRNcH6jS4QNPHIj7TbGChPJxygVPbY5spN_jFikOXA7RtJBcUZT8dYTtmod9VwoB0lge0Qge9k2ECSGYyokx_TzkF6q0CWJ5isii6qMKLXr2EpvdT8exWOF5G7yciQnX_klDhYeUxqA2BEFX4oXZGSBDq_f4gH_vcoezcwwEr2mAi5UmpH2JDJZRtLIk4PCYU7RIg8hSGE9LbwhMC9_xAgngNFGj5BwxrlTBjqh",
-    status: "AVAILABLE",
-    statusClass: "bg-green-100 dark:bg-green-900/30 text-green-600",
-    available: true,
-  },
-  {
-    title: "Garden Caesar",
-    price: "$10.99",
-    description:
-      "Fresh romaine lettuce, shaved parmesan, house-made croutons.",
-    image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuB0ctFrO0RvSQc40CxSzazuPqHp8rvFos99ffAC42K8u4OuyA1hEaI2b15NRi_Ze2yjzmuZCJnFz1-vsvXAjF0eLht5-BZ4LLypqAk8Yyfv60aCbpJhTsoaKIeF9BXj3knEKj-EL98fsHGVNBaLK1WZ1QoMNn1Nx9JrdKUjm9JwOjDDjjnFlupi6WK5V6li-tGO8NblPd0BH9T9m43psY6v1AI4XY3CZ4afhP6678XXRieHUn5TO-HZcp8MT9npEopaT1Dthd1_8kqQ",
-    status: "AVAILABLE",
-    statusClass: "bg-green-100 dark:bg-green-900/30 text-green-600",
-    available: true,
-  },
+const FALLBACK_IMAGES = [
+  "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1572802419224-296b0aeee0d9?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=900&q=80",
 ];
 
-function MenuCard({ item }) {
+function toMoney(value) {
+  const amount = Number(value || 0);
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
+function statusBadgeClasses(isAvailable) {
+  return isAvailable
+    ? "bg-green-100 dark:bg-green-900/30 text-green-600"
+    : "bg-red-100 dark:bg-red-900/30 text-red-600";
+}
+
+function MenuCard({ item, categoryName, onDelete, onToggleAvailability, isUpdating }) {
+  const isAvailable = Boolean(item?.is_available);
+  const imageUrl = FALLBACK_IMAGES[Number(item?.id || 0) % FALLBACK_IMAGES.length];
+
   return (
     <div
       className={`bg-white dark:bg-slate-800 rounded-xl border border-primary/5 overflow-hidden shadow-sm hover:shadow-xl transition-all group${
-        item.outOfStock ? " opacity-80" : ""
+        !isAvailable ? " opacity-80" : ""
       }`}
     >
-      <div className={`relative h-48 overflow-hidden${item.outOfStock ? " grayscale" : ""}`}>
+      <div className={`relative h-48 overflow-hidden${!isAvailable ? " grayscale" : ""}`}>
         <div
           className="absolute inset-0 bg-cover bg-center group-hover:scale-105 transition-transform duration-500"
-          data-alt={item.title}
-          style={bg(item.image)}
+          data-alt={item?.name || "Menu item"}
+          style={bg(imageUrl)}
         ></div>
-        {item.outOfStock ? (
+        {!isAvailable ? (
           <div className="absolute inset-0 bg-background-dark/40 flex items-center justify-center">
             <span className="bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold">
               OUT OF STOCK
@@ -91,36 +49,41 @@ function MenuCard({ item }) {
         ) : null}
         <div className="absolute top-3 right-3 flex gap-2">
           <button
-            className="w-8 h-8 rounded-full bg-white/90 backdrop-blur shadow text-slate-700 flex items-center justify-center hover:bg-primary hover:text-white transition-colors"
-            type="button"
-          >
-            <span className="material-symbols-outlined text-lg">edit</span>
-          </button>
-          <button
             className="w-8 h-8 rounded-full bg-white/90 backdrop-blur shadow text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors"
             type="button"
+            onClick={() => onDelete?.(item)}
+            title="Delete item"
           >
             <span className="material-symbols-outlined text-lg">delete</span>
           </button>
         </div>
       </div>
       <div className="p-5">
-        <div className="flex justify-between items-start mb-2">
-          <h3 className="font-bold text-lg leading-tight">{item.title}</h3>
-          <span className="text-primary font-bold">{item.price}</span>
+        <div className="flex justify-between items-start mb-2 gap-3">
+          <h3 className="font-bold text-lg leading-tight">{item?.name || "Untitled Item"}</h3>
+          <span className="text-primary font-bold whitespace-nowrap">{toMoney(item?.price)}</span>
         </div>
-        <p className="text-slate-500 text-xs mb-4 line-clamp-2 italic">
-          {item.description}
+        <p className="text-slate-500 text-xs mb-2 line-clamp-2 italic">
+          {item?.description || "No description provided."}
+        </p>
+        <p className="text-[11px] text-slate-400 mb-4 uppercase tracking-wider">
+          {categoryName || "Uncategorized"}
         </p>
         <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-700">
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Status</span>
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${item.statusClass}`}>
-              {item.status}
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${statusBadgeClasses(isAvailable)}`}>
+              {isAvailable ? "AVAILABLE" : "UNAVAILABLE"}
             </span>
           </div>
           <label className="relative inline-flex items-center cursor-pointer">
-            <input className="sr-only peer" type="checkbox" defaultChecked={item.available} />
+            <input
+              className="sr-only peer"
+              type="checkbox"
+              checked={isAvailable}
+              onChange={(event) => onToggleAvailability?.(item, event.target.checked)}
+              disabled={isUpdating}
+            />
             <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
           </label>
         </div>
@@ -129,12 +92,179 @@ function MenuCard({ item }) {
   );
 }
 
-export default function MenuManagementModal({ onNavigate }) {
-  const [isModalOpen, setIsModalOpen] = useState(true);
+function createInitialFormState() {
+  return {
+    name: "",
+    price: "",
+    description: "",
+    categoryId: "",
+    newCategoryName: "",
+    prepTime: "",
+    isAvailable: true,
+  };
+}
+
+export default function MenuManagementModal({ onNavigate, token, user, onLogout }) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [menuItems, setMenuItems] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [activeCategoryFilter, setActiveCategoryFilter] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [updatingItemId, setUpdatingItemId] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [form, setForm] = useState(createInitialFormState);
+
+  const categoriesById = useMemo(() => {
+    return Object.fromEntries(categories.map((category) => [String(category.id), category]));
+  }, [categories]);
+
+  useEffect(() => {
+    if (!token) {
+      return undefined;
+    }
+
+    let isCancelled = false;
+
+    const loadMenuData = async () => {
+      setLoading(true);
+      setError("");
+
+      try {
+        const [fetchedCategories, fetchedItems] = await Promise.all([
+          api.getMenuCategories(token),
+          api.getMenuItems(token),
+        ]);
+
+        if (isCancelled) {
+          return;
+        }
+
+        setCategories(Array.isArray(fetchedCategories) ? fetchedCategories : []);
+        setMenuItems(Array.isArray(fetchedItems) ? fetchedItems : []);
+      } catch (requestError) {
+        if (isCancelled) {
+          return;
+        }
+        setError(requestError?.message || "Unable to load menu data.");
+      } finally {
+        if (!isCancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadMenuData();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [token]);
+
+  const filteredItems = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+
+    return menuItems.filter((item) => {
+      const itemCategoryId = String(item?.category_id || "");
+      const matchesCategory =
+        activeCategoryFilter === "all" || itemCategoryId === activeCategoryFilter;
+      const matchesSearch =
+        !normalizedSearch ||
+        String(item?.name || "").toLowerCase().includes(normalizedSearch) ||
+        String(item?.description || "").toLowerCase().includes(normalizedSearch);
+
+      return matchesCategory && matchesSearch;
+    });
+  }, [menuItems, activeCategoryFilter, searchTerm]);
 
   const handleNav = (page) => (event) => {
     event.preventDefault();
     onNavigate?.(page);
+  };
+
+  const handleDelete = async (item) => {
+    if (!item?.id) {
+      return;
+    }
+
+    const confirmed = window.confirm(`Delete "${item.name}" from menu?`);
+    if (!confirmed) {
+      return;
+    }
+
+    setError("");
+    setUpdatingItemId(item.id);
+
+    try {
+      await api.deleteMenuItem(token, item.id);
+      setMenuItems((previous) => previous.filter((current) => current.id !== item.id));
+    } catch (requestError) {
+      setError(requestError?.message || "Failed to delete menu item.");
+    } finally {
+      setUpdatingItemId(null);
+    }
+  };
+
+  const handleToggleAvailability = async (item, nextValue) => {
+    if (!item?.id) {
+      return;
+    }
+
+    setError("");
+    setUpdatingItemId(item.id);
+
+    try {
+      const updatedItem = await api.updateMenuItemAvailability(token, item.id, nextValue);
+      setMenuItems((previous) =>
+        previous.map((current) => (current.id === item.id ? updatedItem : current))
+      );
+    } catch (requestError) {
+      setError(requestError?.message || "Failed to update availability.");
+    } finally {
+      setUpdatingItemId(null);
+    }
+  };
+
+  const handleCreateItem = async (event) => {
+    event.preventDefault();
+    setError("");
+    setIsSaving(true);
+
+    try {
+      let categoryId = form.categoryId ? Number(form.categoryId) : null;
+
+      if (!categoryId && form.newCategoryName.trim()) {
+        const category = await api.createMenuCategory(token, {
+          name: form.newCategoryName.trim(),
+        });
+        categoryId = Number(category?.id || 0);
+        if (category?.id) {
+          setCategories((previous) => [...previous, category]);
+        }
+      }
+
+      if (!categoryId) {
+        throw new Error("Select a category or create a new category.");
+      }
+
+      const newItem = await api.createMenuItem(token, {
+        category_id: categoryId,
+        name: form.name.trim(),
+        description: form.description.trim() || undefined,
+        price: Number(form.price),
+        is_available: form.isAvailable,
+        prep_time: form.prepTime ? Number(form.prepTime) : undefined,
+      });
+
+      setMenuItems((previous) => [newItem, ...previous]);
+      setForm(createInitialFormState());
+      setIsModalOpen(false);
+    } catch (requestError) {
+      setError(requestError?.message || "Failed to create menu item.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -209,31 +339,23 @@ export default function MenuManagementModal({ onNavigate }) {
               <span className="material-symbols-outlined">monitoring</span>
               <span className="text-sm font-medium">Analytics</span>
             </a>
-            <a
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors"
-              href="#"
-              onClick={(event) => event.preventDefault()}
-            >
-              <span className="material-symbols-outlined">settings</span>
-              <span className="text-sm font-medium">Settings</span>
-            </a>
           </nav>
           <div className="p-4 border-t border-primary/10">
             <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-primary/5">
-              <div
-                className="size-10 rounded-full bg-slate-300 overflow-hidden bg-cover bg-center"
-                data-alt="Profile picture of the restaurant manager"
-                style={bg(
-                  "https://lh3.googleusercontent.com/aida-public/AB6AXuCfno-lRT1a7iZbsWEDWJ6YO-jEyArfY--xT5lnlmtZpoF8YE1UVYt2SPiEeQPGzdyIOCs_eq0On-YJNoEMGn-F7q5A7RfjJ_iMkwf2xmPUgXMcx-Zm-7yt6MUdIYEk1HGi6TIx6-AF81MTF4iPym1SWLEjVzxCAEGjxp2IkQpmuCjBqpqbOAi6YoPnmNVWXYFUuerZ7q3At5nv3xO_WLmzSvE-OhQslsR5lB_g-IvwEqq3eBXurgMq23NftDIFoywM9skawWxjV540"
-                )}
-              ></div>
+              <div className="size-10 rounded-full bg-slate-300 flex items-center justify-center">
+                <span className="material-symbols-outlined text-slate-500">person</span>
+              </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold truncate">Alex Miller</p>
-                <p className="text-xs text-slate-500 truncate">Store Manager</p>
+                <p className="text-sm font-bold truncate">{user?.name || "Restaurant User"}</p>
+                <p className="text-xs text-slate-500 truncate">
+                  {String(user?.role || "restaurant_owner").replace("_", " ")}
+                </p>
               </div>
               <button
                 className="material-symbols-outlined text-slate-400 text-sm hover:text-red-500 transition-colors"
                 type="button"
+                onClick={onLogout}
+                title="Logout"
               >
                 logout
               </button>
@@ -252,6 +374,8 @@ export default function MenuManagementModal({ onNavigate }) {
                   className="w-full pl-10 pr-4 py-2 bg-primary/5 border-none rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:bg-white dark:focus:bg-background-dark transition-all placeholder:text-slate-400"
                   placeholder="Search menu items..."
                   type="text"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
                 />
               </div>
             </div>
@@ -264,44 +388,66 @@ export default function MenuManagementModal({ onNavigate }) {
                 <span className="material-symbols-outlined text-lg">add</span>
                 <span>Add New Item</span>
               </button>
-              <button
-                className="p-2 text-slate-500 hover:bg-primary/5 rounded-lg transition-colors"
-                type="button"
-              >
-                <span className="material-symbols-outlined">notifications</span>
-              </button>
             </div>
           </header>
           <div className="px-8 py-6">
             <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-              {[
-                "All Items",
-                "Burgers",
-                "Sides",
-                "Drinks",
-                "Desserts",
-                "Offers",
-              ].map((label, index) => (
-                <button
-                  key={label}
-                  className={
-                    index === 0
-                      ? "px-6 py-2 rounded-full bg-primary text-white text-sm font-medium whitespace-nowrap"
-                      : "px-6 py-2 rounded-full bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-primary/10 text-sm font-medium whitespace-nowrap hover:border-primary/40 transition-colors"
-                  }
-                  type="button"
-                >
-                  {label}
-                </button>
-              ))}
+              <button
+                className={
+                  activeCategoryFilter === "all"
+                    ? "px-6 py-2 rounded-full bg-primary text-white text-sm font-medium whitespace-nowrap"
+                    : "px-6 py-2 rounded-full bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-primary/10 text-sm font-medium whitespace-nowrap hover:border-primary/40 transition-colors"
+                }
+                type="button"
+                onClick={() => setActiveCategoryFilter("all")}
+              >
+                All Items
+              </button>
+              {categories.map((category) => {
+                const key = String(category.id);
+                const isActive = activeCategoryFilter === key;
+
+                return (
+                  <button
+                    key={category.id}
+                    className={
+                      isActive
+                        ? "px-6 py-2 rounded-full bg-primary text-white text-sm font-medium whitespace-nowrap"
+                        : "px-6 py-2 rounded-full bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-primary/10 text-sm font-medium whitespace-nowrap hover:border-primary/40 transition-colors"
+                    }
+                    type="button"
+                    onClick={() => setActiveCategoryFilter(key)}
+                  >
+                    {category.name}
+                  </button>
+                );
+              })}
             </div>
           </div>
           <div className="px-8 pb-12">
+            {error ? (
+              <div className="mb-6 rounded-xl border border-red-200 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-300 px-4 py-3 text-sm">
+                {error}
+              </div>
+            ) : null}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {menuItems.map((item) => (
-                <MenuCard key={item.title} item={item} />
+              {filteredItems.map((item) => (
+                <MenuCard
+                  key={item.id}
+                  item={item}
+                  categoryName={categoriesById[String(item?.category_id)]?.name || ""}
+                  onDelete={handleDelete}
+                  onToggleAvailability={handleToggleAvailability}
+                  isUpdating={updatingItemId === item.id}
+                />
               ))}
             </div>
+            {!filteredItems.length ? (
+              <div className="mt-8 text-sm text-slate-500">
+                {loading ? "Loading menu..." : "No menu items match your filter."}
+              </div>
+            ) : null}
           </div>
           <button
             className="fixed bottom-8 right-8 lg:hidden bg-primary text-white w-14 h-14 rounded-full shadow-2xl flex items-center justify-center text-2xl z-20"
@@ -325,7 +471,7 @@ export default function MenuManagementModal({ onNavigate }) {
             <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <div>
                 <h3 className="text-xl font-bold">Add New Menu Item</h3>
-                <p className="text-slate-500 text-sm">Fill in the details for your new dish</p>
+                <p className="text-slate-500 text-sm">This will create a real API record.</p>
               </div>
               <button
                 className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
@@ -335,16 +481,7 @@ export default function MenuManagementModal({ onNavigate }) {
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
-            <form className="flex-1 overflow-y-auto p-6 space-y-6">
-              <div className="relative group cursor-pointer">
-                <div className="w-full h-40 rounded-xl border-2 border-dashed border-primary/20 bg-primary/5 flex flex-col items-center justify-center gap-2 group-hover:border-primary/40 group-hover:bg-primary/10 transition-all">
-                  <span className="material-symbols-outlined text-primary text-3xl">add_a_photo</span>
-                  <span className="text-xs font-bold text-primary uppercase tracking-widest">
-                    Upload Item Image
-                  </span>
-                  <p className="text-[10px] text-slate-400">PNG, JPG up to 10MB</p>
-                </div>
-              </div>
+            <form className="flex-1 overflow-y-auto p-6 space-y-6" onSubmit={handleCreateItem}>
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2 sm:col-span-1">
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">
@@ -352,8 +489,11 @@ export default function MenuManagementModal({ onNavigate }) {
                   </label>
                   <input
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border-none rounded-lg focus:ring-2 focus:ring-primary/20 text-sm placeholder:text-slate-400"
-                    placeholder="e.g. Classic Margherita"
+                    placeholder="e.g. Classic Burger"
                     type="text"
+                    value={form.name}
+                    onChange={(event) => setForm((previous) => ({ ...previous, name: event.target.value }))}
+                    required
                   />
                 </div>
                 <div className="col-span-2 sm:col-span-1">
@@ -364,22 +504,63 @@ export default function MenuManagementModal({ onNavigate }) {
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border-none rounded-lg focus:ring-2 focus:ring-primary/20 text-sm placeholder:text-slate-400"
                     placeholder="0.00"
                     step="0.01"
+                    min="0"
                     type="number"
+                    value={form.price}
+                    onChange={(event) => setForm((previous) => ({ ...previous, price: event.target.value }))}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">
+                    Category
+                  </label>
+                  <select
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border-none rounded-lg focus:ring-2 focus:ring-primary/20 text-sm appearance-none cursor-pointer"
+                    value={form.categoryId}
+                    onChange={(event) =>
+                      setForm((previous) => ({ ...previous, categoryId: event.target.value }))
+                    }
+                  >
+                    <option value="">Select Category</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">
+                    Prep Time (mins)
+                  </label>
+                  <input
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border-none rounded-lg focus:ring-2 focus:ring-primary/20 text-sm placeholder:text-slate-400"
+                    placeholder="Optional"
+                    type="number"
+                    min="1"
+                    value={form.prepTime}
+                    onChange={(event) =>
+                      setForm((previous) => ({ ...previous, prepTime: event.target.value }))
+                    }
                   />
                 </div>
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">
-                  Category
+                  New Category (Optional)
                 </label>
-                <select className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border-none rounded-lg focus:ring-2 focus:ring-primary/20 text-sm appearance-none cursor-pointer">
-                  <option value="">Select Category</option>
-                  <option value="burgers">Burgers</option>
-                  <option value="sides">Sides</option>
-                  <option value="drinks">Drinks</option>
-                  <option value="desserts">Desserts</option>
-                  <option value="offers">Offers</option>
-                </select>
+                <input
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border-none rounded-lg focus:ring-2 focus:ring-primary/20 text-sm placeholder:text-slate-400"
+                  placeholder="If no category exists, type one here"
+                  type="text"
+                  value={form.newCategoryName}
+                  onChange={(event) =>
+                    setForm((previous) => ({ ...previous, newCategoryName: event.target.value }))
+                  }
+                />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">
@@ -387,8 +568,12 @@ export default function MenuManagementModal({ onNavigate }) {
                 </label>
                 <textarea
                   className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border-none rounded-lg focus:ring-2 focus:ring-primary/20 text-sm placeholder:text-slate-400 resize-none"
-                  placeholder="Describe the item ingredients, taste..."
+                  placeholder="Describe the item"
                   rows="3"
+                  value={form.description}
+                  onChange={(event) =>
+                    setForm((previous) => ({ ...previous, description: event.target.value }))
+                  }
                 ></textarea>
               </div>
               <div className="flex items-center justify-between p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50">
@@ -399,27 +584,34 @@ export default function MenuManagementModal({ onNavigate }) {
                   </span>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
-                  <input className="sr-only peer" type="checkbox" defaultChecked />
+                  <input
+                    className="sr-only peer"
+                    type="checkbox"
+                    checked={form.isAvailable}
+                    onChange={(event) =>
+                      setForm((previous) => ({ ...previous, isAvailable: event.target.checked }))
+                    }
+                  />
                   <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                 </label>
               </div>
+              <div className="pt-2 flex items-center justify-end gap-3">
+                <button
+                  className="px-5 py-2.5 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors"
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="px-8 py-2.5 bg-primary text-white rounded-lg text-sm font-bold shadow-md hover:shadow-lg hover:bg-primary/90 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                  type="submit"
+                  disabled={isSaving}
+                >
+                  {isSaving ? "Creating..." : "Create Item"}
+                </button>
+              </div>
             </form>
-            <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-3 bg-slate-50/50 dark:bg-slate-800/20">
-              <button
-                className="px-5 py-2.5 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors"
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-8 py-2.5 bg-primary text-white rounded-lg text-sm font-bold shadow-md hover:shadow-lg hover:bg-primary/90 transition-all"
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-              >
-                Create Item
-              </button>
-            </div>
           </div>
         </div>
       ) : null}

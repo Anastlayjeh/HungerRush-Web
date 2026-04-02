@@ -1,12 +1,142 @@
-import { useState } from "react";
-import { bg } from "../utils/bg.js";
+import { useEffect, useMemo, useState } from "react";
+import { api } from "../lib/api.js";
+import {
+  ACTIVE_ORDER_STATUSES,
+  ORDER_ACTION_LABEL,
+  ORDER_NEXT_STATUS,
+  getOrderStatusClass,
+  getOrderStatusLabel,
+} from "../utils/orderStatus.js";
 
-export default function OrdersManagementModal({ onNavigate }) {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+function toMoney(value) {
+  const amount = Number(value || 0);
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
+function formatOrderTime(value) {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  return date.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function estimateQueueTimeMinutes(orders) {
+  const activeOrders = orders.filter((order) => ACTIVE_ORDER_STATUSES.has(order?.status));
+  if (!activeOrders.length) {
+    return 0;
+  }
+
+  const now = Date.now();
+  const totalMinutes = activeOrders.reduce((sum, order) => {
+    const createdAt = new Date(order?.created_at || "").getTime();
+    if (Number.isNaN(createdAt)) {
+      return sum;
+    }
+    return sum + Math.max(0, (now - createdAt) / 60000);
+  }, 0);
+
+  return Math.round(totalMinutes / activeOrders.length);
+}
+
+export default function OrdersManagementModal({ onNavigate, token, user, onLogout }) {
+  const [orders, setOrders] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [updatingOrderId, setUpdatingOrderId] = useState(null);
+
+  useEffect(() => {
+    if (!token) {
+      return undefined;
+    }
+
+    let isCancelled = false;
+
+    const loadOrders = async () => {
+      setLoading(true);
+      setError("");
+
+      try {
+        const data = await api.getRestaurantOrders(token);
+        if (isCancelled) {
+          return;
+        }
+        setOrders(Array.isArray(data) ? data : []);
+      } catch (requestError) {
+        if (isCancelled) {
+          return;
+        }
+        setError(requestError?.message || "Failed to load orders.");
+      } finally {
+        if (!isCancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadOrders();
+    const intervalId = window.setInterval(loadOrders, 30000);
+
+    return () => {
+      isCancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [token]);
+
+  const filteredOrders = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+
+    return orders.filter((order) => {
+      const matchesStatus = statusFilter === "all" || order?.status === statusFilter;
+      const matchesSearch =
+        !normalizedSearch ||
+        String(order?.id || "").toLowerCase().includes(normalizedSearch) ||
+        String(order?.customer_id || "").toLowerCase().includes(normalizedSearch);
+
+      return matchesStatus && matchesSearch;
+    });
+  }, [orders, searchTerm, statusFilter]);
+
+  const queueTimeMinutes = useMemo(() => estimateQueueTimeMinutes(orders), [orders]);
 
   const handleNav = (page) => (event) => {
     event.preventDefault();
     onNavigate?.(page);
+  };
+
+  const handleStatusAdvance = async (order) => {
+    const nextStatus = ORDER_NEXT_STATUS[order?.status];
+    if (!nextStatus || !order?.id) {
+      return;
+    }
+
+    setError("");
+    setUpdatingOrderId(order.id);
+
+    try {
+      const updatedOrder = await api.updateOrderStatus(token, order.id, nextStatus);
+      setOrders((previous) =>
+        previous.map((current) => (current.id === order.id ? updatedOrder : current))
+      );
+    } catch (requestError) {
+      setError(requestError?.message || "Failed to update order status.");
+    } finally {
+      setUpdatingOrderId(null);
+    }
   };
 
   return (
@@ -81,31 +211,23 @@ export default function OrdersManagementModal({ onNavigate }) {
               <span className="material-symbols-outlined">monitoring</span>
               <span className="text-sm font-medium">Analytics</span>
             </a>
-            <a
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors"
-              href="#"
-              onClick={(event) => event.preventDefault()}
-            >
-              <span className="material-symbols-outlined">settings</span>
-              <span className="text-sm font-medium">Settings</span>
-            </a>
           </nav>
           <div className="p-4 border-t border-primary/10">
             <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-primary/5">
-              <div
-                className="size-10 rounded-full bg-slate-300 overflow-hidden bg-cover bg-center"
-                data-alt="Profile picture of the store manager"
-                style={bg(
-                  "https://lh3.googleusercontent.com/aida-public/AB6AXuCfno-lRT1a7iZbsWEDWJ6YO-jEyArfY--xT5lnlmtZpoF8YE1UVYt2SPiEeQPGzdyIOCs_eq0On-YJNoEMGn-F7q5A7RfjJ_iMkwf2xmPUgXMcx-Zm-7yt6MUdIYEk1HGi6TIx6-AF81MTF4iPym1SWLEjVzxCAEGjxp2IkQpmuCjBqpqbOAi6YoPnmNVWXYFUuerZ7q3At5nv3xO_WLmzSvE-OhQslsR5lB_g-IvwEqq3eBXurgMq23NftDIFoywM9skawWxjV540"
-                )}
-              ></div>
+              <div className="size-10 rounded-full bg-slate-300 flex items-center justify-center">
+                <span className="material-symbols-outlined text-slate-500">person</span>
+              </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold truncate">Alex Miller</p>
-                <p className="text-xs text-slate-500 truncate">Store Manager</p>
+                <p className="text-sm font-bold truncate">{user?.name || "Restaurant User"}</p>
+                <p className="text-xs text-slate-500 truncate">
+                  {String(user?.role || "restaurant_owner").replace("_", " ")}
+                </p>
               </div>
               <button
                 className="material-symbols-outlined text-slate-400 text-sm hover:text-red-500 transition-colors"
                 type="button"
+                onClick={onLogout}
+                title="Logout"
               >
                 logout
               </button>
@@ -130,49 +252,52 @@ export default function OrdersManagementModal({ onNavigate }) {
                   className="pl-10 pr-4 py-2 bg-background-light dark:bg-slate-800 border-none rounded-lg focus:ring-2 focus:ring-primary w-64 text-sm"
                   placeholder="Search orders..."
                   type="text"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
                 />
               </div>
-              <button
-                className="size-10 flex items-center justify-center rounded-lg bg-background-light dark:bg-slate-800 text-slate-600 dark:text-slate-400 relative"
-                type="button"
-              >
-                <span className="material-symbols-outlined">notifications</span>
-                <span className="absolute top-2 right-2 size-2 bg-primary rounded-full border-2 border-white dark:border-slate-800"></span>
-              </button>
             </div>
           </header>
           <div className="flex-1 overflow-y-auto p-8">
-            <div className="flex items-center gap-2 mb-8 bg-white dark:bg-slate-900 p-1 rounded-xl w-fit shadow-sm border border-primary/5">
+            {error ? (
+              <div className="mb-6 rounded-xl border border-red-200 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-300 px-4 py-3 text-sm">
+                {error}
+              </div>
+            ) : null}
+
+            <div className="flex items-center gap-2 mb-8 bg-white dark:bg-slate-900 p-1 rounded-xl w-fit shadow-sm border border-primary/5 overflow-x-auto">
               <button
-                className="px-5 py-2 rounded-lg bg-primary text-white font-semibold text-sm"
+                className={
+                  statusFilter === "all"
+                    ? "px-5 py-2 rounded-lg bg-primary text-white font-semibold text-sm"
+                    : "px-5 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 font-medium text-sm transition-colors"
+                }
                 type="button"
+                onClick={() => setStatusFilter("all")}
               >
-                All Orders
+                All
               </button>
-              <button
-                className="px-5 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 font-medium text-sm transition-colors"
-                type="button"
-              >
-                Pending
-              </button>
-              <button
-                className="px-5 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 font-medium text-sm transition-colors"
-                type="button"
-              >
-                Preparing
-              </button>
-              <button
-                className="px-5 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 font-medium text-sm transition-colors"
-                type="button"
-              >
-                Ready
-              </button>
-              <button
-                className="px-5 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 font-medium text-sm transition-colors"
-                type="button"
-              >
-                Out for Delivery
-              </button>
+              {[
+                "pending",
+                "accepted",
+                "preparing",
+                "ready_for_pickup",
+                "on_the_way",
+                "delivered",
+              ].map((status) => (
+                <button
+                  key={status}
+                  className={
+                    statusFilter === status
+                      ? "px-5 py-2 rounded-lg bg-primary text-white font-semibold text-sm"
+                      : "px-5 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 font-medium text-sm transition-colors whitespace-nowrap"
+                  }
+                  type="button"
+                  onClick={() => setStatusFilter(status)}
+                >
+                  {getOrderStatusLabel(status)}
+                </button>
+              ))}
             </div>
             <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-primary/10 overflow-hidden">
               <table className="w-full text-left border-collapse">
@@ -185,7 +310,7 @@ export default function OrdersManagementModal({ onNavigate }) {
                       Customer
                     </th>
                     <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                      Items
+                      Summary
                     </th>
                     <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">
                       Price
@@ -202,161 +327,76 @@ export default function OrdersManagementModal({ onNavigate }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-primary/5">
-                  <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
-                    <td className="px-6 py-5 font-bold text-primary">#1024</td>
-                    <td className="px-6 py-5">
-                      <div className="font-semibold text-slate-900 dark:text-white">
-                        John Doe
-                      </div>
-                      <div className="text-xs text-slate-500">Delivery - 1.2 miles away</div>
-                    </td>
-                    <td className="px-6 py-5 text-sm">
-                      <span className="font-medium text-slate-800 dark:text-slate-200">
-                        2x Big Burger Extra Cheese
-                      </span>
-                      <div className="text-xs text-slate-500">No onions, extra sauce</div>
-                    </td>
-                    <td className="px-6 py-5 text-right font-bold text-slate-900 dark:text-white">
-                      $24.50
-                    </td>
-                    <td className="px-6 py-5 text-sm text-slate-600 dark:text-slate-400">
-                      12:05 PM
-                    </td>
-                    <td className="px-6 py-5">
-                      <div className="flex justify-center">
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400">
-                          PENDING
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-5 text-right">
-                      <button
-                        className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary/90 shadow-sm transition-all active:scale-95"
-                        type="button"
-                      >
-                        Accept
-                      </button>
-                    </td>
-                  </tr>
-                  <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
-                    <td className="px-6 py-5 font-bold text-primary">#1023</td>
-                    <td className="px-6 py-5">
-                      <div className="font-semibold text-slate-900 dark:text-white">
-                        Jane Smith
-                      </div>
-                      <div className="text-xs text-slate-500">Pickup - 12:15 PM</div>
-                    </td>
-                    <td className="px-6 py-5 text-sm">
-                      <span className="font-medium text-slate-800 dark:text-slate-200">
-                        1x Veggie Wrap, 1x Coke Zero
-                      </span>
-                    </td>
-                    <td className="px-6 py-5 text-right font-bold text-slate-900 dark:text-white">
-                      $18.00
-                    </td>
-                    <td className="px-6 py-5 text-sm text-slate-600 dark:text-slate-400">
-                      11:58 AM
-                    </td>
-                    <td className="px-6 py-5">
-                      <div className="flex justify-center">
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
-                          PREPARING
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-5 text-right">
-                      <button
-                        className="px-4 py-2 bg-background-light dark:bg-slate-800 border border-primary/20 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-lg hover:bg-primary/10 transition-all"
-                        type="button"
-                      >
-                        Update Status
-                      </button>
-                    </td>
-                  </tr>
-                  <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
-                    <td className="px-6 py-5 font-bold text-primary">#1022</td>
-                    <td className="px-6 py-5">
-                      <div className="font-semibold text-slate-900 dark:text-white">
-                        Robert Brown
-                      </div>
-                      <div className="text-xs text-slate-500">Delivery - Priority</div>
-                    </td>
-                    <td className="px-6 py-5 text-sm">
-                      <span className="font-medium text-slate-800 dark:text-slate-200">
-                        3x Street Tacos, 1x Fries
-                      </span>
-                    </td>
-                    <td className="px-6 py-5 text-right font-bold text-slate-900 dark:text-white">
-                      $15.75
-                    </td>
-                    <td className="px-6 py-5 text-sm text-slate-600 dark:text-slate-400">
-                      11:45 AM
-                    </td>
-                    <td className="px-6 py-5">
-                      <div className="flex justify-center">
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400">
-                          READY
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-5 text-right">
-                      <button
-                        className="px-4 py-2 bg-background-light dark:bg-slate-800 border border-primary/20 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-lg hover:bg-primary/10 transition-all"
-                        type="button"
-                      >
-                        Update Status
-                      </button>
-                    </td>
-                  </tr>
-                  <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
-                    <td className="px-6 py-5 font-bold text-primary">#1021</td>
-                    <td className="px-6 py-5">
-                      <div className="font-semibold text-slate-900 dark:text-white">
-                        Emily Davis
-                      </div>
-                      <div className="text-xs text-slate-500">Delivery - DoorDash</div>
-                    </td>
-                    <td className="px-6 py-5 text-sm">
-                      <span className="font-medium text-slate-800 dark:text-slate-200">
-                        1x Pepperoni Pizza Large
-                      </span>
-                    </td>
-                    <td className="px-6 py-5 text-right font-bold text-slate-900 dark:text-white">
-                      $21.00
-                    </td>
-                    <td className="px-6 py-5 text-sm text-slate-600 dark:text-slate-400">
-                      11:30 AM
-                    </td>
-                    <td className="px-6 py-5">
-                      <div className="flex justify-center">
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-                          IN TRANSIT
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-5 text-right">
-                      <button
-                        className="px-4 py-2 bg-background-light dark:bg-slate-800 border border-primary/20 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-lg hover:bg-primary/10 transition-all"
-                        type="button"
-                      >
-                        Track Order
-                      </button>
-                    </td>
-                  </tr>
+                  {filteredOrders.length ? (
+                    filteredOrders.map((order) => {
+                      const nextStatus = ORDER_NEXT_STATUS[order?.status];
+                      const isUpdating = updatingOrderId === order.id;
+
+                      return (
+                        <tr
+                          key={order.id}
+                          className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors"
+                        >
+                          <td className="px-6 py-5 font-bold text-primary">#{order.id}</td>
+                          <td className="px-6 py-5">
+                            <div className="font-semibold text-slate-900 dark:text-white">
+                              Customer #{order.customer_id || "N/A"}
+                            </div>
+                          </td>
+                          <td className="px-6 py-5 text-sm text-slate-600 dark:text-slate-400">
+                            {order.branch_id ? `Branch #${order.branch_id}` : "Main branch order"}
+                          </td>
+                          <td className="px-6 py-5 text-right font-bold text-slate-900 dark:text-white">
+                            {toMoney(order.total)}
+                          </td>
+                          <td className="px-6 py-5 text-sm text-slate-600 dark:text-slate-400">
+                            {formatOrderTime(order.created_at)}
+                          </td>
+                          <td className="px-6 py-5">
+                            <div className="flex justify-center">
+                              <span
+                                className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase ${getOrderStatusClass(
+                                  order.status
+                                )}`}
+                              >
+                                {getOrderStatusLabel(order.status)}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-5 text-right">
+                            {nextStatus ? (
+                              <button
+                                className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary/90 shadow-sm transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+                                type="button"
+                                onClick={() => handleStatusAdvance(order)}
+                                disabled={isUpdating}
+                              >
+                                {isUpdating ? "Updating..." : ORDER_ACTION_LABEL[nextStatus] || "Update Status"}
+                              </button>
+                            ) : (
+                              <span className="text-xs text-slate-400 font-semibold">No Action</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td className="px-6 py-8 text-sm text-slate-500" colSpan={7}>
+                        {loading ? "Loading orders..." : "No orders found."}
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
-            <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-primary/10 shadow-sm">
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
-                  Queue Time
+                  Avg Queue Time
                 </p>
                 <div className="flex items-end gap-2">
-                  <span className="text-2xl font-bold">12m</span>
-                  <span className="text-green-500 text-xs font-bold mb-1 flex items-center">
-                    <span className="material-symbols-outlined text-sm">trending_down</span>
-                    2m
-                  </span>
+                  <span className="text-2xl font-bold">{queueTimeMinutes}m</span>
                 </div>
               </div>
               <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-primary/10 shadow-sm">
@@ -364,199 +404,23 @@ export default function OrdersManagementModal({ onNavigate }) {
                   Total Orders
                 </p>
                 <div className="flex items-end gap-2">
-                  <span className="text-2xl font-bold">48</span>
-                  <span className="text-primary text-xs font-bold mb-1">Today</span>
+                  <span className="text-2xl font-bold">{orders.length}</span>
                 </div>
               </div>
               <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-primary/10 shadow-sm">
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
-                  Active Chefs
+                  Active Orders
                 </p>
                 <div className="flex items-end gap-2">
-                  <span className="text-2xl font-bold">6</span>
-                  <span className="text-slate-400 text-xs font-bold mb-1">Online</span>
+                  <span className="text-2xl font-bold">
+                    {orders.filter((order) => ACTIVE_ORDER_STATUSES.has(order?.status)).length}
+                  </span>
                 </div>
               </div>
-              <button
-                className="bg-primary hover:bg-primary/90 text-white p-6 rounded-2xl border border-primary/10 shadow-lg shadow-primary/20 flex items-center justify-center gap-3 transition-all active:scale-95 group"
-                type="button"
-                onClick={() => setIsModalOpen(true)}
-              >
-                <span className="material-symbols-outlined text-3xl group-hover:rotate-90 transition-transform">
-                  add_circle
-                </span>
-                <span className="text-lg font-bold">Manual Order</span>
-              </button>
             </div>
           </div>
         </main>
       </div>
-
-      {isModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <button
-            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-            type="button"
-            aria-label="Close modal"
-            onClick={() => setIsModalOpen(false)}
-          ></button>
-          <div className="relative bg-white dark:bg-slate-900 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-6 border-b border-primary/10 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="bg-primary size-10 rounded-lg flex items-center justify-center text-white">
-                  <span className="material-symbols-outlined">add_shopping_cart</span>
-                </div>
-                <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-                  New Manual Order
-                </h3>
-              </div>
-              <button
-                className="size-10 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-colors"
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-            <div className="p-8 overflow-y-auto space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
-                    Customer Name
-                  </label>
-                  <input
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
-                    placeholder="e.g. Michael Scott"
-                    type="text"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
-                    Phone Number
-                  </label>
-                  <input
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
-                    placeholder="+1 (555) 000-0000"
-                    type="tel"
-                  />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
-                  Delivery Address
-                </label>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                    location_on
-                  </span>
-                  <input
-                    className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
-                    placeholder="1725 Slough Avenue, Scranton, PA"
-                    type="text"
-                  />
-                </div>
-              </div>
-              <div className="space-y-3">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
-                  Search & Select Items
-                </label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                      search
-                    </span>
-                    <input
-                      className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
-                      placeholder="Search menu items..."
-                      type="text"
-                    />
-                  </div>
-                  <div className="w-24">
-                    <input
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-center"
-                      min="1"
-                      placeholder="Qty"
-                      type="number"
-                      defaultValue={1}
-                    />
-                  </div>
-                  <button
-                    className="bg-primary/10 text-primary p-3 rounded-xl hover:bg-primary/20 transition-colors"
-                    type="button"
-                  >
-                    <span className="material-symbols-outlined">add</span>
-                  </button>
-                </div>
-                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 border border-dashed border-slate-200 dark:border-slate-700">
-                  <div className="flex items-center justify-between text-sm py-2 px-2 border-b border-slate-100 dark:border-slate-700/50">
-                    <span className="font-medium">1x Large Pepperoni Pizza</span>
-                    <div className="flex items-center gap-4">
-                      <span className="font-bold">$18.00</span>
-                      <button className="text-slate-400 hover:text-red-500" type="button">
-                        <span className="material-symbols-outlined text-lg">delete</span>
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between text-sm py-2 px-2">
-                    <span className="font-medium">2x Garlic Knots</span>
-                    <div className="flex items-center gap-4">
-                      <span className="font-bold">$6.50</span>
-                      <button className="text-slate-400 hover:text-red-500" type="button">
-                        <span className="material-symbols-outlined text-lg">delete</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
-                    Payment Method
-                  </label>
-                  <select className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all appearance-none cursor-pointer">
-                    <option>Cash on Delivery</option>
-                    <option>Credit/Debit Card</option>
-                    <option>In-Store Payment</option>
-                    <option>Loyalty Points</option>
-                  </select>
-                </div>
-                <div className="bg-primary/5 rounded-2xl p-4 border border-primary/10">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs text-slate-500 font-medium">Subtotal</span>
-                    <span className="text-sm font-bold">$24.50</span>
-                  </div>
-                  <div className="flex justify-between items-center mb-2 pb-2 border-b border-primary/10">
-                    <span className="text-xs text-slate-500 font-medium">Tax & Fees</span>
-                    <span className="text-sm font-bold">$3.20</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                      Total
-                    </span>
-                    <span className="text-2xl font-black text-primary">$27.70</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="p-6 border-t border-primary/10 bg-slate-50 dark:bg-slate-800/30 flex gap-4">
-              <button
-                className="flex-1 px-6 py-3.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="flex-[2] px-6 py-3.5 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95"
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-              >
-                Create Order
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
