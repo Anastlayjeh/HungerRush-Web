@@ -1,0 +1,278 @@
+<?php
+
+namespace Tests\Feature\Api\V1\Restaurant;
+
+use App\Models\LoyaltyMember;
+use App\Models\MenuCategory;
+use App\Models\MenuItem;
+use App\Models\Order;
+use App\Models\OrderItem;
+use App\Models\Restaurant;
+use App\Models\Review;
+use App\Models\User;
+use App\Models\Video;
+use App\Models\VideoEngagement;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Tests\TestCase;
+
+class RestaurantExtendedApiTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_restaurant_owner_can_upload_menu_images_from_local_files(): void
+    {
+        $owner = User::factory()->create(['role' => 'restaurant_owner']);
+        Restaurant::factory()->create(['owner_user_id' => $owner->id]);
+
+        $response = $this->actingAs($owner, 'sanctum')
+            ->post('/api/v1/restaurant/menu/images/upload', [
+                'images' => [
+                    UploadedFile::fake()->create('burger-1.jpg', 120, 'image/jpeg'),
+                    UploadedFile::fake()->create('burger-2.png', 120, 'image/png'),
+                ],
+            ]);
+
+        $response->assertCreated()
+            ->assertJsonCount(2, 'data.urls');
+    }
+
+    public function test_restaurant_owner_can_create_menu_item_with_multiple_photos(): void
+    {
+        $owner = User::factory()->create(['role' => 'restaurant_owner']);
+        $restaurant = Restaurant::factory()->create(['owner_user_id' => $owner->id]);
+        $category = MenuCategory::factory()->create(['restaurant_id' => $restaurant->id]);
+
+        $response = $this->actingAs($owner, 'sanctum')
+            ->postJson('/api/v1/restaurant/menu/items', [
+                'category_id' => $category->id,
+                'name' => 'Photo Burger',
+                'description' => 'Test burger with image gallery.',
+                'image_urls' => [
+                    'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=900&q=80',
+                    'https://images.unsplash.com/photo-1550317138-10000687a72b?auto=format&fit=crop&w=900&q=80',
+                ],
+                'price' => 12.50,
+                'is_available' => true,
+                'prep_time' => 15,
+            ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.name', 'Photo Burger')
+            ->assertJsonPath('data.image_urls.0', 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=900&q=80')
+            ->assertJsonPath('data.image_urls.1', 'https://images.unsplash.com/photo-1550317138-10000687a72b?auto=format&fit=crop&w=900&q=80');
+    }
+
+    public function test_restaurant_owner_can_manage_videos(): void
+    {
+        $owner = User::factory()->create(['role' => 'restaurant_owner']);
+        $restaurant = Restaurant::factory()->create(['owner_user_id' => $owner->id]);
+        $category = MenuCategory::factory()->create(['restaurant_id' => $restaurant->id]);
+        $menuItem = MenuItem::factory()->create(['category_id' => $category->id]);
+
+        $createResponse = $this->actingAs($owner, 'sanctum')
+            ->postJson('/api/v1/restaurant/videos', [
+                'menu_item_id' => $menuItem->id,
+                'title' => 'Burger Build',
+                'description' => 'How we build the signature burger.',
+                'media_url' => 'https://example.com/video.mp4',
+                'thumbnail_url' => 'https://example.com/thumb.jpg',
+                'status' => 'draft',
+            ]);
+
+        $createResponse->assertCreated()
+            ->assertJsonPath('data.title', 'Burger Build');
+
+        $videoId = $createResponse->json('data.id');
+
+        $this->actingAs($owner, 'sanctum')
+            ->patchJson("/api/v1/restaurant/videos/{$videoId}", [
+                'status' => 'published',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'published');
+
+        $this->actingAs($owner, 'sanctum')
+            ->getJson('/api/v1/restaurant/videos?q=burger')
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
+
+        $this->actingAs($owner, 'sanctum')
+            ->deleteJson("/api/v1/restaurant/videos/{$videoId}")
+            ->assertOk()
+            ->assertJsonPath('data.deleted', true);
+    }
+
+    public function test_restaurant_owner_can_create_quick_order(): void
+    {
+        $owner = User::factory()->create(['role' => 'restaurant_owner']);
+        $restaurant = Restaurant::factory()->create(['owner_user_id' => $owner->id]);
+        $category = MenuCategory::factory()->create(['restaurant_id' => $restaurant->id]);
+        $burger = MenuItem::factory()->create(['category_id' => $category->id, 'price' => 10]);
+        $drink = MenuItem::factory()->create(['category_id' => $category->id, 'price' => 3]);
+
+        $response = $this->actingAs($owner, 'sanctum')
+            ->postJson('/api/v1/restaurant/orders/quick', [
+                'items' => [
+                    ['menu_item_id' => $burger->id, 'quantity' => 2],
+                    ['menu_item_id' => $drink->id, 'quantity' => 1, 'notes' => 'No ice'],
+                ],
+            ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.is_quick_order', true)
+            ->assertJsonCount(2, 'data.items');
+
+        $this->assertDatabaseHas('orders', [
+            'id' => $response->json('data.id'),
+            'restaurant_id' => $restaurant->id,
+            'is_quick_order' => 1,
+        ]);
+    }
+
+    public function test_restaurant_owner_can_view_review_summary_and_reply(): void
+    {
+        $owner = User::factory()->create(['role' => 'restaurant_owner']);
+        $restaurant = Restaurant::factory()->create(['owner_user_id' => $owner->id]);
+        $customer = User::factory()->create(['role' => 'customer']);
+
+        Review::create([
+            'restaurant_id' => $restaurant->id,
+            'customer_id' => $customer->id,
+            'order_id' => null,
+            'rating' => 5,
+            'comment' => 'Excellent food.',
+        ]);
+
+        $this->actingAs($owner, 'sanctum')
+            ->getJson('/api/v1/restaurant/reviews/summary')
+            ->assertOk()
+            ->assertJsonPath('data.total_reviews', 1)
+            ->assertJsonPath('data.average_rating', 5);
+
+        $reviewId = $this->actingAs($owner, 'sanctum')
+            ->getJson('/api/v1/restaurant/reviews')
+            ->assertOk()
+            ->json('data.0.id');
+
+        $this->actingAs($owner, 'sanctum')
+            ->patchJson("/api/v1/restaurant/reviews/{$reviewId}/reply", [
+                'reply' => 'Thank you for your review!',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.reply', 'Thank you for your review!');
+    }
+
+    public function test_restaurant_owner_can_manage_loyalty_rewards_and_read_overview(): void
+    {
+        $owner = User::factory()->create(['role' => 'restaurant_owner']);
+        $restaurant = Restaurant::factory()->create(['owner_user_id' => $owner->id]);
+        $customer = User::factory()->create(['role' => 'customer']);
+        LoyaltyMember::factory()->create([
+            'restaurant_id' => $restaurant->id,
+            'customer_id' => $customer->id,
+            'points' => 1200,
+            'orders_count' => 8,
+        ]);
+
+        $createResponse = $this->actingAs($owner, 'sanctum')
+            ->postJson('/api/v1/restaurant/loyalty/rewards', [
+                'name' => 'Free Delivery Weekend',
+                'description' => 'No delivery fee for top members.',
+                'points_required' => 700,
+                'reward_type' => 'free_delivery',
+                'status' => 'active',
+            ]);
+
+        $createResponse->assertCreated()
+            ->assertJsonPath('data.name', 'Free Delivery Weekend');
+
+        $rewardId = $createResponse->json('data.id');
+
+        $this->actingAs($owner, 'sanctum')
+            ->patchJson("/api/v1/restaurant/loyalty/rewards/{$rewardId}", [
+                'status' => 'archived',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'archived');
+
+        $this->actingAs($owner, 'sanctum')
+            ->getJson('/api/v1/restaurant/loyalty/overview')
+            ->assertOk()
+            ->assertJsonPath('data.stats.active_members', 1)
+            ->assertJsonCount(1, 'data.rewards')
+            ->assertJsonCount(1, 'data.top_customers');
+    }
+
+    public function test_restaurant_owner_can_fetch_analytics_and_update_settings(): void
+    {
+        $owner = User::factory()->create([
+            'name' => 'Owner One',
+            'email' => 'owner-one@example.com',
+            'role' => 'restaurant_owner',
+        ]);
+        $restaurant = Restaurant::factory()->create(['owner_user_id' => $owner->id]);
+        $customer = User::factory()->create(['role' => 'customer']);
+        $category = MenuCategory::factory()->create(['restaurant_id' => $restaurant->id]);
+        $menuItem = MenuItem::factory()->create(['category_id' => $category->id, 'price' => 20]);
+        $order = Order::factory()->create([
+            'restaurant_id' => $restaurant->id,
+            'customer_id' => $customer->id,
+            'total' => 44,
+            'subtotal' => 40,
+            'fees' => 4,
+            'status' => 'delivered',
+        ]);
+        OrderItem::create([
+            'order_id' => $order->id,
+            'menu_item_id' => $menuItem->id,
+            'quantity' => 2,
+            'unit_price' => 20,
+            'notes' => null,
+        ]);
+
+        $video = Video::factory()->create([
+            'restaurant_id' => $restaurant->id,
+            'menu_item_id' => $menuItem->id,
+            'status' => 'published',
+        ]);
+        VideoEngagement::create([
+            'video_id' => $video->id,
+            'user_id' => $customer->id,
+            'type' => 'view',
+        ]);
+
+        $this->actingAs($owner, 'sanctum')
+            ->getJson('/api/v1/restaurant/analytics?range_days=30')
+            ->assertOk()
+            ->assertJsonStructure([
+                'data' => [
+                    'metrics' => [
+                        'total_revenue',
+                        'order_volume',
+                        'avg_order_value',
+                        'retention_rate',
+                    ],
+                    'revenue_trend',
+                    'top_dishes',
+                    'video_funnel',
+                ],
+            ]);
+
+        $this->actingAs($owner, 'sanctum')
+            ->patchJson('/api/v1/restaurant/settings', [
+                'name' => 'Updated Demo Kitchen',
+                'owner_name' => 'Updated Owner',
+                'owner_email' => 'owner-updated@example.com',
+                'settings' => [
+                    'auto_accept_orders' => true,
+                    'default_prep_time' => 18,
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.restaurant.name', 'Updated Demo Kitchen')
+            ->assertJsonPath('data.owner.name', 'Updated Owner')
+            ->assertJsonPath('data.settings.auto_accept_orders', true)
+            ->assertJsonPath('data.settings.default_prep_time', 18);
+    }
+}

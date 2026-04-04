@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { bg } from "../utils/bg.js";
+import RestaurantShell from "../components/RestaurantShell.jsx";
 import { api } from "../lib/api.js";
 import {
   ACTIVE_ORDER_STATUSES,
@@ -8,77 +8,74 @@ import {
 } from "../utils/orderStatus.js";
 
 function toMoney(value) {
-  const amount = Number(value || 0);
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     maximumFractionDigits: 2,
-  }).format(amount);
+  }).format(Number(value || 0));
 }
 
 function formatOrderTime(value) {
-  if (!value) {
-    return "-";
-  }
-
+  if (!value) return "-";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "-";
-  }
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
 
-  return date.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+function createQuickOrderRow() {
+  return {
+    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    menuItemId: "",
+    quantity: 1,
+    notes: "",
+  };
 }
 
 export default function DashboardOverview({ onNavigate, token, user, onLogout }) {
   const [profile, setProfile] = useState(null);
   const [orders, setOrders] = useState([]);
+  const [menuItems, setMenuItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [isQuickOrderOpen, setIsQuickOrderOpen] = useState(false);
+  const [quickOrderRows, setQuickOrderRows] = useState([createQuickOrderRow()]);
+  const [quickOrderError, setQuickOrderError] = useState("");
+  const [creatingQuickOrder, setCreatingQuickOrder] = useState(false);
 
   useEffect(() => {
-    if (!token) {
-      return undefined;
-    }
+    if (!token) return undefined;
 
     let isCancelled = false;
 
-    const loadDashboardData = async () => {
+    const loadData = async () => {
       setLoading(true);
       setError("");
-
       try {
-        const [profileData, ordersData] = await Promise.all([
+        const [profileData, ordersData, menuItemsData] = await Promise.all([
           api.getRestaurantProfile(token),
           api.getRestaurantOrders(token),
+          api.getMenuItems(token),
         ]);
 
-        if (isCancelled) {
-          return;
-        }
-
+        if (isCancelled) return;
         setProfile(profileData || null);
         setOrders(Array.isArray(ordersData) ? ordersData : []);
+        setMenuItems(Array.isArray(menuItemsData) ? menuItemsData : []);
       } catch (requestError) {
-        if (isCancelled) {
-          return;
-        }
-        setError(requestError?.message || "Failed to load dashboard data.");
-      } finally {
         if (!isCancelled) {
-          setLoading(false);
+          setError(requestError?.message || "Failed to load dashboard data.");
         }
+      } finally {
+        if (!isCancelled) setLoading(false);
       }
     };
 
-    loadDashboardData();
-    const intervalId = window.setInterval(loadDashboardData, 30000);
+    loadData();
+    const timer = window.setInterval(loadData, 30000);
 
     return () => {
       isCancelled = true;
-      window.clearInterval(intervalId);
+      window.clearInterval(timer);
     };
   }, [token]);
 
@@ -91,249 +88,307 @@ export default function DashboardOverview({ onNavigate, token, user, onLogout })
       return !Number.isNaN(createdAt.getTime()) && createdAt >= startOfToday;
     });
 
-    const revenueToday = todayOrders.reduce((sum, order) => sum + Number(order?.total || 0), 0);
-    const inProgressCount = orders.filter((order) =>
-      ACTIVE_ORDER_STATUSES.has(String(order?.status || ""))
-    ).length;
-
     return {
       totalOrdersToday: todayOrders.length,
-      revenueToday,
-      inProgressCount,
+      revenueToday: todayOrders.reduce((sum, order) => sum + Number(order?.total || 0), 0),
+      inProgressCount: orders.filter((order) => ACTIVE_ORDER_STATUSES.has(String(order?.status || ""))).length,
     };
   }, [orders]);
 
   const recentOrders = useMemo(() => orders.slice(0, 5), [orders]);
+  const availableMenuItems = useMemo(
+    () => menuItems.filter((item) => Boolean(item?.is_available)),
+    [menuItems]
+  );
 
-  const handleNav = (page) => (event) => {
+  const openQuickOrder = () => {
+    setQuickOrderRows([createQuickOrderRow()]);
+    setQuickOrderError("");
+    setIsQuickOrderOpen(true);
+  };
+
+  const closeQuickOrder = () => {
+    setIsQuickOrderOpen(false);
+    setQuickOrderRows([createQuickOrderRow()]);
+    setQuickOrderError("");
+  };
+
+  const handleQuickRowChange = (rowId, field, value) => {
+    setQuickOrderRows((previous) =>
+      previous.map((row) => (row.id === rowId ? { ...row, [field]: value } : row))
+    );
+  };
+
+  const handleAddQuickRow = () => {
+    setQuickOrderRows((previous) => [...previous, createQuickOrderRow()]);
+  };
+
+  const handleRemoveQuickRow = (rowId) => {
+    setQuickOrderRows((previous) => {
+      const next = previous.filter((row) => row.id !== rowId);
+      return next.length ? next : [createQuickOrderRow()];
+    });
+  };
+
+  const handleCreateQuickOrder = async (event) => {
     event.preventDefault();
-    onNavigate?.(page);
+    setQuickOrderError("");
+
+    const items = quickOrderRows
+      .map((row) => ({
+        menu_item_id: Number(row.menuItemId),
+        quantity: Number(row.quantity),
+        notes: row.notes.trim() || undefined,
+      }))
+      .filter((row) => Number.isFinite(row.menu_item_id) && row.menu_item_id > 0 && row.quantity > 0);
+
+    if (!items.length) {
+      setQuickOrderError("Please add at least one valid item.");
+      return;
+    }
+
+    setCreatingQuickOrder(true);
+    try {
+      const createdOrder = await api.createQuickOrder(token, { items });
+      setOrders((previous) => [createdOrder, ...previous]);
+      closeQuickOrder();
+    } catch (requestError) {
+      setQuickOrderError(requestError?.message || "Failed to create quick order.");
+    } finally {
+      setCreatingQuickOrder(false);
+    }
   };
 
   return (
-    <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex">
-      <aside className="w-64 border-r border-primary/10 bg-white dark:bg-background-dark/50 flex flex-col fixed h-full">
-        <div className="p-6 flex items-center gap-3">
-          <div className="bg-primary size-10 rounded-lg flex items-center justify-center text-white shadow-lg shadow-primary/30">
-            <span className="material-symbols-outlined">restaurant</span>
+    <>
+      <RestaurantShell
+        activePage="dashboard"
+        onNavigate={onNavigate}
+        user={user}
+        onLogout={onLogout}
+        title={profile?.name || "Dashboard"}
+        headerActions={
+          <>
+            <button
+              className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-primary/90"
+              type="button"
+              onClick={() => onNavigate?.("menu")}
+            >
+              Add Food
+            </button>
+            <button
+              className="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-slate-800"
+              type="button"
+              onClick={openQuickOrder}
+            >
+              Quick Order
+            </button>
+            <button
+              className="bg-primary/10 text-primary border border-primary/20 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-primary/20"
+              type="button"
+              onClick={() => onNavigate?.("videoCreate")}
+            >
+              Upload Video
+            </button>
+          </>
+        }
+      >
+        {error ? (
+          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 text-red-700 px-4 py-3 text-sm">
+            {error}
           </div>
-          <div>
-            <h1 className="text-slate-900 dark:text-white text-base font-bold leading-none">
-              HungerRush
-            </h1>
-            <p className="text-primary text-[10px] font-bold uppercase tracking-wider mt-1">
-              Restaurant Management
-            </p>
+        ) : null}
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white p-6 rounded-xl border border-primary/10 shadow-sm">
+            <p className="text-slate-500 text-sm font-medium">Total Orders Today</p>
+            <h3 className="text-3xl font-bold mt-1">{loading ? "..." : dashboardStats.totalOrdersToday}</h3>
+          </div>
+          <div className="bg-white p-6 rounded-xl border border-primary/10 shadow-sm">
+            <p className="text-slate-500 text-sm font-medium">Revenue Today</p>
+            <h3 className="text-3xl font-bold mt-1">{loading ? "..." : toMoney(dashboardStats.revenueToday)}</h3>
+          </div>
+          <div className="bg-white p-6 rounded-xl border border-primary/10 shadow-sm">
+            <p className="text-slate-500 text-sm font-medium">Orders in Progress</p>
+            <h3 className="text-3xl font-bold mt-1">{loading ? "..." : dashboardStats.inProgressCount}</h3>
           </div>
         </div>
-        <nav className="flex-1 px-4 py-6 space-y-1">
-          <a
-            className="flex items-center gap-3 px-4 py-3 rounded-lg bg-primary text-white shadow-md shadow-primary/20"
-            href="#"
-            onClick={handleNav("dashboard")}
-          >
-            <span className="material-symbols-outlined sidebar-active-icon">dashboard</span>
-            <span className="text-sm font-semibold">Dashboard</span>
-          </a>
-          <a
-            className="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            href="#"
-            onClick={handleNav("orders")}
-          >
-            <span className="material-symbols-outlined">receipt_long</span>
-            <span className="text-sm font-medium">Orders</span>
-          </a>
-          <a
-            className="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            href="#"
-            onClick={handleNav("menu")}
-          >
-            <span className="material-symbols-outlined">menu_book</span>
-            <span className="text-sm font-medium">Menu</span>
-          </a>
-          <a
-            className="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            href="#"
-            onClick={handleNav("videos")}
-          >
-            <span className="material-symbols-outlined">videocam</span>
-            <span className="text-sm font-medium">Videos</span>
-          </a>
-          <a
-            className="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            href="#"
-            onClick={handleNav("reviews")}
-          >
-            <span className="material-symbols-outlined">star</span>
-            <span className="text-sm font-medium">Reviews</span>
-          </a>
-          <a
-            className="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            href="#"
-            onClick={handleNav("loyalty")}
-          >
-            <span className="material-symbols-outlined">card_membership</span>
-            <span className="text-sm font-medium">Loyalty</span>
-          </a>
-          <a
-            className="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            href="#"
-            onClick={handleNav("analytics")}
-          >
-            <span className="material-symbols-outlined">monitoring</span>
-            <span className="text-sm font-medium">Analytics</span>
-          </a>
-        </nav>
-        <div className="p-4 border-t border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-3 px-3 py-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-            <div
-              className="size-10 rounded-full bg-slate-300 overflow-hidden bg-cover bg-center border border-white dark:border-slate-700"
-              data-alt="Profile picture of user"
-              style={bg(
-                "https://lh3.googleusercontent.com/aida-public/AB6AXuCfno-lRT1a7iZbsWEDWJ6YO-jEyArfY--xT5lnlmtZpoF8YE1UVYt2SPiEeQPGzdyIOCs_eq0On-YJNoEMGn-F7q5A7RfjJ_iMkwf2xmPUgXMcx-Zm-7yt6MUdIYEk1HGi6TIx6-AF81MTF4iPym1SWLEjVzxCAEGjxp2IkQpmuCjBqpqbOAi6YoPnmNVWXYFUuerZ7q3At5nv3xO_WLmzSvE-OhQslsR5lB_g-IvwEqq3eBXurgMq23NftDIFoywM9skawWxjV540"
-              )}
-            ></div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold truncate">{user?.name || "Restaurant User"}</p>
-              <p className="text-[11px] text-slate-500 truncate">
-                {String(user?.role || "restaurant_owner").replace("_", " ")}
-              </p>
-            </div>
+
+        <div className="bg-white rounded-xl border border-primary/10 shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-primary/10 flex items-center justify-between">
+            <h3 className="text-xl font-bold">Recent Orders</h3>
             <button
-              className="material-symbols-outlined text-slate-400 hover:text-red-500 transition-colors text-xl"
+              className="text-primary text-sm font-semibold hover:underline"
               type="button"
-              onClick={onLogout}
-              title="Logout"
+              onClick={() => onNavigate?.("orders")}
             >
-              logout
+              View All
             </button>
           </div>
-        </div>
-      </aside>
-      <main className="flex-1 ml-64 min-h-screen flex flex-col">
-        <header className="h-16 border-b border-primary/10 bg-white dark:bg-background-dark/80 backdrop-blur-md sticky top-0 z-10 px-8 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2 text-primary">
-              <span className="material-symbols-outlined font-bold">lunch_dining</span>
-              <h2 className="text-slate-900 dark:text-white text-lg font-bold tracking-tight">
-                {profile?.name || "Restaurant"}
-              </h2>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <button
-                className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-primary/90 transition-all"
-                type="button"
-                onClick={() => onNavigate?.("menu")}
-              >
-                <span className="material-symbols-outlined text-lg">add_circle</span>
-                Add Food
-              </button>
-              <button
-                className="bg-primary/10 text-primary border border-primary/20 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-primary/20 transition-all"
-                type="button"
-                onClick={() => onNavigate?.("videoCreate")}
-              >
-                <span className="material-symbols-outlined text-lg">upload_file</span>
-                Upload Video
-              </button>
-            </div>
-          </div>
-        </header>
-        <div className="p-8 space-y-8">
-          {error ? (
-            <div className="rounded-xl border border-red-200 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-300 px-4 py-3 text-sm">
-              {error}
-            </div>
-          ) : null}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white dark:bg-slate-800/50 p-6 rounded-xl border border-primary/10 shadow-sm">
-              <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">
-                Total Orders Today
-              </p>
-              <h3 className="text-3xl font-bold mt-1">
-                {loading ? "..." : dashboardStats.totalOrdersToday}
-              </h3>
-            </div>
-            <div className="bg-white dark:bg-slate-800/50 p-6 rounded-xl border border-primary/10 shadow-sm">
-              <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">Revenue Today</p>
-              <h3 className="text-3xl font-bold mt-1">
-                {loading ? "..." : toMoney(dashboardStats.revenueToday)}
-              </h3>
-            </div>
-            <div className="bg-white dark:bg-slate-800/50 p-6 rounded-xl border border-primary/10 shadow-sm">
-              <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">
-                Orders in Progress
-              </p>
-              <h3 className="text-3xl font-bold mt-1">
-                {loading ? "..." : dashboardStats.inProgressCount}
-              </h3>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-slate-800/50 rounded-xl border border-primary/10 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-primary/10 flex items-center justify-between bg-white dark:bg-transparent">
-              <h3 className="text-xl font-bold">Recent Orders</h3>
-              <button
-                className="text-primary text-sm font-semibold hover:underline"
-                type="button"
-                onClick={() => onNavigate?.("orders")}
-              >
-                View All
-              </button>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 text-xs font-bold uppercase tracking-wider">
-                  <tr>
-                    <th className="px-6 py-4">Order ID</th>
-                    <th className="px-6 py-4">Customer</th>
-                    <th className="px-6 py-4">Time</th>
-                    <th className="px-6 py-4">Status</th>
-                    <th className="px-6 py-4">Amount</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-primary/5">
-                  {recentOrders.length ? (
-                    recentOrders.map((order) => (
-                      <tr
-                        key={order.id}
-                        className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
-                      >
-                        <td className="px-6 py-4 font-bold text-sm">#{order.id}</td>
-                        <td className="px-6 py-4 text-sm text-slate-700 dark:text-slate-300">
-                          Customer #{order.customer_id || "N/A"}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">
-                          {formatOrderTime(order.created_at)}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${getOrderStatusClass(
-                              order.status
-                            )}`}
-                          >
-                            {getOrderStatusLabel(order.status)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 font-bold text-sm">{toMoney(order.total)}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td className="px-6 py-8 text-sm text-slate-500" colSpan={5}>
-                        {loading ? "Loading recent orders..." : "No orders found yet."}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-wider">
+                <tr>
+                  <th className="px-6 py-4">Order ID</th>
+                  <th className="px-6 py-4">Customer</th>
+                  <th className="px-6 py-4">Time</th>
+                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-primary/5">
+                {recentOrders.length ? (
+                  recentOrders.map((order) => (
+                    <tr key={order.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-6 py-4 font-bold text-sm">#{order.id}</td>
+                      <td className="px-6 py-4 text-sm text-slate-700">
+                        <div className="flex items-center gap-2">
+                          <span>{order?.is_quick_order ? "Quick Order" : `Customer #${order.customer_id || "N/A"}`}</span>
+                          {order?.is_quick_order ? (
+                            <span className="px-2 py-0.5 rounded-full bg-slate-900 text-white text-[10px] font-bold uppercase">
+                              Not Real
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{formatOrderTime(order.created_at)}</td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${getOrderStatusClass(
+                            order.status
+                          )}`}
+                        >
+                          {getOrderStatusLabel(order.status)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 font-bold text-sm">{toMoney(order.total)}</td>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  ))
+                ) : (
+                  <tr>
+                    <td className="px-6 py-8 text-sm text-slate-500" colSpan={5}>
+                      {loading ? "Loading recent orders..." : "No orders found yet."}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
-      </main>
-    </div>
+      </RestaurantShell>
+
+      {isQuickOrderOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60">
+          <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-bold">Create Quick Order</h3>
+                <p className="text-slate-500 text-sm">
+                  This creates a normal order and labels it as not from a real customer.
+                </p>
+              </div>
+              <button
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
+                type="button"
+                onClick={closeQuickOrder}
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <form className="p-6 space-y-4" onSubmit={handleCreateQuickOrder}>
+              {quickOrderError ? (
+                <div className="rounded-xl border border-red-200 bg-red-50 text-red-700 px-4 py-3 text-sm">
+                  {quickOrderError}
+                </div>
+              ) : null}
+
+              {quickOrderRows.map((row, index) => (
+                <div key={row.id} className="grid grid-cols-1 md:grid-cols-[2fr_100px_1fr_40px] gap-3 items-start">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Item #{index + 1}</label>
+                    <select
+                      className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg text-sm"
+                      value={row.menuItemId}
+                      onChange={(event) => handleQuickRowChange(row.id, "menuItemId", event.target.value)}
+                      required
+                    >
+                      <option value="">Select Menu Item</option>
+                      {availableMenuItems.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name} ({toMoney(item.price)})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Qty</label>
+                    <input
+                      className="w-full px-3 py-2.5 bg-slate-50 border-none rounded-lg text-sm"
+                      type="number"
+                      min="1"
+                      value={row.quantity}
+                      onChange={(event) => handleQuickRowChange(row.id, "quantity", event.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Notes</label>
+                    <input
+                      className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg text-sm"
+                      type="text"
+                      placeholder="Optional"
+                      value={row.notes}
+                      onChange={(event) => handleQuickRowChange(row.id, "notes", event.target.value)}
+                    />
+                  </div>
+                  <button
+                    className="mt-6 size-10 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-50"
+                    type="button"
+                    onClick={() => handleRemoveQuickRow(row.id)}
+                    disabled={quickOrderRows.length === 1}
+                    title="Remove row"
+                  >
+                    <span className="material-symbols-outlined text-base">remove</span>
+                  </button>
+                </div>
+              ))}
+
+              <button
+                className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 text-sm font-semibold hover:bg-slate-200"
+                type="button"
+                onClick={handleAddQuickRow}
+              >
+                Add Item Row
+              </button>
+
+              <div className="pt-2 flex items-center justify-end gap-3">
+                <button
+                  className="px-5 py-2.5 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-100"
+                  type="button"
+                  onClick={closeQuickOrder}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="px-8 py-2.5 bg-slate-900 text-white rounded-lg text-sm font-bold hover:bg-slate-800 disabled:opacity-60"
+                  type="submit"
+                  disabled={creatingQuickOrder || !availableMenuItems.length}
+                >
+                  {creatingQuickOrder ? "Creating..." : "Create Quick Order"}
+                </button>
+              </div>
+
+              {!availableMenuItems.length ? (
+                <p className="text-xs text-slate-500">
+                  You need at least one available menu item to create a quick order.
+                </p>
+              ) : null}
+            </form>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }

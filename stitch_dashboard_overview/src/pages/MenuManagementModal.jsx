@@ -1,95 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { bg } from "../utils/bg.js";
+import RestaurantShell from "../components/RestaurantShell.jsx";
 import { api } from "../lib/api.js";
 
-const FALLBACK_IMAGES = [
-  "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=900&q=80",
-  "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=900&q=80",
-  "https://images.unsplash.com/photo-1572802419224-296b0aeee0d9?auto=format&fit=crop&w=900&q=80",
-  "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=900&q=80",
-];
-
 function toMoney(value) {
-  const amount = Number(value || 0);
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     maximumFractionDigits: 2,
-  }).format(amount);
-}
-
-function statusBadgeClasses(isAvailable) {
-  return isAvailable
-    ? "bg-green-100 dark:bg-green-900/30 text-green-600"
-    : "bg-red-100 dark:bg-red-900/30 text-red-600";
-}
-
-function MenuCard({ item, categoryName, onDelete, onToggleAvailability, isUpdating }) {
-  const isAvailable = Boolean(item?.is_available);
-  const imageUrl = FALLBACK_IMAGES[Number(item?.id || 0) % FALLBACK_IMAGES.length];
-
-  return (
-    <div
-      className={`bg-white dark:bg-slate-800 rounded-xl border border-primary/5 overflow-hidden shadow-sm hover:shadow-xl transition-all group${
-        !isAvailable ? " opacity-80" : ""
-      }`}
-    >
-      <div className={`relative h-48 overflow-hidden${!isAvailable ? " grayscale" : ""}`}>
-        <div
-          className="absolute inset-0 bg-cover bg-center group-hover:scale-105 transition-transform duration-500"
-          data-alt={item?.name || "Menu item"}
-          style={bg(imageUrl)}
-        ></div>
-        {!isAvailable ? (
-          <div className="absolute inset-0 bg-background-dark/40 flex items-center justify-center">
-            <span className="bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold">
-              OUT OF STOCK
-            </span>
-          </div>
-        ) : null}
-        <div className="absolute top-3 right-3 flex gap-2">
-          <button
-            className="w-8 h-8 rounded-full bg-white/90 backdrop-blur shadow text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors"
-            type="button"
-            onClick={() => onDelete?.(item)}
-            title="Delete item"
-          >
-            <span className="material-symbols-outlined text-lg">delete</span>
-          </button>
-        </div>
-      </div>
-      <div className="p-5">
-        <div className="flex justify-between items-start mb-2 gap-3">
-          <h3 className="font-bold text-lg leading-tight">{item?.name || "Untitled Item"}</h3>
-          <span className="text-primary font-bold whitespace-nowrap">{toMoney(item?.price)}</span>
-        </div>
-        <p className="text-slate-500 text-xs mb-2 line-clamp-2 italic">
-          {item?.description || "No description provided."}
-        </p>
-        <p className="text-[11px] text-slate-400 mb-4 uppercase tracking-wider">
-          {categoryName || "Uncategorized"}
-        </p>
-        <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-700">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Status</span>
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${statusBadgeClasses(isAvailable)}`}>
-              {isAvailable ? "AVAILABLE" : "UNAVAILABLE"}
-            </span>
-          </div>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              className="sr-only peer"
-              type="checkbox"
-              checked={isAvailable}
-              onChange={(event) => onToggleAvailability?.(item, event.target.checked)}
-              disabled={isUpdating}
-            />
-            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-          </label>
-        </div>
-      </div>
-    </div>
-  );
+  }).format(Number(value || 0));
 }
 
 function createInitialFormState() {
@@ -104,6 +22,78 @@ function createInitialFormState() {
   };
 }
 
+function normalizeImageUrls(imageUrls) {
+  if (!Array.isArray(imageUrls)) {
+    return [];
+  }
+
+  return imageUrls
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+}
+
+function MenuCard({ item, categoryName, isUpdating, onDelete, onToggleAvailability }) {
+  const isAvailable = Boolean(item?.is_available);
+  const imageUrls = normalizeImageUrls(item?.image_urls);
+  const previewImage =
+    imageUrls[0] ||
+    "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=900&q=80";
+
+  return (
+    <div className={`bg-white rounded-xl border border-primary/10 shadow-sm ${!isAvailable ? "opacity-75" : ""}`}>
+      <div className="h-44 w-full bg-slate-100 overflow-hidden rounded-t-xl relative">
+        <img alt={item?.name || "Menu item"} className="h-full w-full object-cover" src={previewImage} />
+        {imageUrls.length > 1 ? (
+          <span className="absolute top-2 right-2 px-2 py-1 rounded-full bg-black/60 text-white text-[10px] font-bold">
+            +{imageUrls.length - 1}
+          </span>
+        ) : null}
+      </div>
+      <div className="p-5">
+        <div className="flex items-start justify-between gap-3 mb-2">
+          <h3 className="font-bold text-lg">{item?.name || "Untitled Item"}</h3>
+          <span className="text-primary font-bold">{toMoney(item?.price)}</span>
+        </div>
+        <p className="text-sm text-slate-600 mb-2">{item?.description || "No description provided."}</p>
+        <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">{categoryName || "Uncategorized"}</p>
+        <p className="text-[11px] text-slate-400 mb-4">
+          {imageUrls.length ? `${imageUrls.length} photo${imageUrls.length > 1 ? "s" : ""}` : "No photos"}
+        </p>
+
+        <div className="flex items-center justify-between border-t border-slate-100 pt-4">
+          <span
+            className={
+              isAvailable
+                ? "px-2 py-1 rounded-full text-[10px] font-bold bg-green-100 text-green-700"
+                : "px-2 py-1 rounded-full text-[10px] font-bold bg-red-100 text-red-700"
+            }
+          >
+            {isAvailable ? "AVAILABLE" : "UNAVAILABLE"}
+          </span>
+
+          <div className="flex items-center gap-2">
+            <button
+              className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 text-xs font-semibold hover:bg-slate-200 disabled:opacity-60"
+              type="button"
+              onClick={() => onToggleAvailability?.(item, !isAvailable)}
+              disabled={isUpdating}
+            >
+              {isUpdating ? "Updating..." : isAvailable ? "Mark Unavailable" : "Mark Available"}
+            </button>
+            <button
+              className="px-3 py-1.5 rounded-lg bg-red-50 text-red-700 text-xs font-semibold hover:bg-red-100"
+              type="button"
+              onClick={() => onDelete?.(item)}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function MenuManagementModal({ onNavigate, token, user, onLogout }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [menuItems, setMenuItems] = useState([]);
@@ -115,10 +105,28 @@ export default function MenuManagementModal({ onNavigate, token, user, onLogout 
   const [updatingItemId, setUpdatingItemId] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState(createInitialFormState);
+  const [photoFiles, setPhotoFiles] = useState([]);
+  const [photoPreviewUrls, setPhotoPreviewUrls] = useState([]);
 
-  const categoriesById = useMemo(() => {
-    return Object.fromEntries(categories.map((category) => [String(category.id), category]));
-  }, [categories]);
+  const categoriesById = useMemo(
+    () => Object.fromEntries(categories.map((category) => [String(category.id), category])),
+    [categories]
+  );
+
+  useEffect(() => {
+    const urls = photoFiles.map((file) => URL.createObjectURL(file));
+    setPhotoPreviewUrls(urls);
+
+    return () => {
+      urls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [photoFiles]);
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setForm(createInitialFormState());
+    setPhotoFiles([]);
+  };
 
   useEffect(() => {
     if (!token) {
@@ -130,24 +138,20 @@ export default function MenuManagementModal({ onNavigate, token, user, onLogout 
     const loadMenuData = async () => {
       setLoading(true);
       setError("");
-
       try {
         const [fetchedCategories, fetchedItems] = await Promise.all([
           api.getMenuCategories(token),
           api.getMenuItems(token),
         ]);
 
-        if (isCancelled) {
-          return;
+        if (!isCancelled) {
+          setCategories(Array.isArray(fetchedCategories) ? fetchedCategories : []);
+          setMenuItems(Array.isArray(fetchedItems) ? fetchedItems : []);
         }
-
-        setCategories(Array.isArray(fetchedCategories) ? fetchedCategories : []);
-        setMenuItems(Array.isArray(fetchedItems) ? fetchedItems : []);
       } catch (requestError) {
-        if (isCancelled) {
-          return;
+        if (!isCancelled) {
+          setError(requestError?.message || "Unable to load menu data.");
         }
-        setError(requestError?.message || "Unable to load menu data.");
       } finally {
         if (!isCancelled) {
           setLoading(false);
@@ -167,8 +171,7 @@ export default function MenuManagementModal({ onNavigate, token, user, onLogout 
 
     return menuItems.filter((item) => {
       const itemCategoryId = String(item?.category_id || "");
-      const matchesCategory =
-        activeCategoryFilter === "all" || itemCategoryId === activeCategoryFilter;
+      const matchesCategory = activeCategoryFilter === "all" || itemCategoryId === activeCategoryFilter;
       const matchesSearch =
         !normalizedSearch ||
         String(item?.name || "").toLowerCase().includes(normalizedSearch) ||
@@ -178,24 +181,17 @@ export default function MenuManagementModal({ onNavigate, token, user, onLogout 
     });
   }, [menuItems, activeCategoryFilter, searchTerm]);
 
-  const handleNav = (page) => (event) => {
-    event.preventDefault();
-    onNavigate?.(page);
-  };
-
   const handleDelete = async (item) => {
     if (!item?.id) {
       return;
     }
 
-    const confirmed = window.confirm(`Delete "${item.name}" from menu?`);
-    if (!confirmed) {
+    if (!window.confirm(`Delete "${item.name}" from menu?`)) {
       return;
     }
 
     setError("");
     setUpdatingItemId(item.id);
-
     try {
       await api.deleteMenuItem(token, item.id);
       setMenuItems((previous) => previous.filter((current) => current.id !== item.id));
@@ -213,7 +209,6 @@ export default function MenuManagementModal({ onNavigate, token, user, onLogout 
 
     setError("");
     setUpdatingItemId(item.id);
-
     try {
       const updatedItem = await api.updateMenuItemAvailability(token, item.id, nextValue);
       setMenuItems((previous) =>
@@ -228,8 +223,8 @@ export default function MenuManagementModal({ onNavigate, token, user, onLogout 
 
   const handleCreateItem = async (event) => {
     event.preventDefault();
-    setError("");
     setIsSaving(true);
+    setError("");
 
     try {
       let categoryId = form.categoryId ? Number(form.categoryId) : null;
@@ -245,21 +240,27 @@ export default function MenuManagementModal({ onNavigate, token, user, onLogout 
       }
 
       if (!categoryId) {
-        throw new Error("Select a category or create a new category.");
+        throw new Error("Select a category or create a new one.");
+      }
+
+      let imageUrls = [];
+      if (photoFiles.length) {
+        const uploadResponse = await api.uploadMenuImages(token, photoFiles);
+        imageUrls = Array.isArray(uploadResponse?.urls) ? uploadResponse.urls : [];
       }
 
       const newItem = await api.createMenuItem(token, {
         category_id: categoryId,
         name: form.name.trim(),
         description: form.description.trim() || undefined,
+        image_urls: imageUrls.length ? imageUrls : undefined,
         price: Number(form.price),
         is_available: form.isAvailable,
         prep_time: form.prepTime ? Number(form.prepTime) : undefined,
       });
 
       setMenuItems((previous) => [newItem, ...previous]);
-      setForm(createInitialFormState());
-      setIsModalOpen(false);
+      closeModal();
     } catch (requestError) {
       setError(requestError?.message || "Failed to create menu item.");
     } finally {
@@ -268,227 +269,119 @@ export default function MenuManagementModal({ onNavigate, token, user, onLogout 
   };
 
   return (
-    <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100">
-      <div className="flex min-h-screen">
-        <aside className="w-64 border-r border-primary/10 bg-white dark:bg-background-dark/50 flex flex-col fixed h-full">
-          <div className="p-6 flex items-center gap-3">
-            <div className="bg-primary size-10 rounded-lg flex items-center justify-center text-white">
-              <span className="material-symbols-outlined">restaurant</span>
+    <>
+      <RestaurantShell
+        activePage="menu"
+        onNavigate={onNavigate}
+        user={user}
+        onLogout={onLogout}
+        title="Menu Management"
+        headerActions={
+          <>
+            <div className="relative">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                search
+              </span>
+              <input
+                className="w-64 pl-10 pr-4 py-2 bg-primary/5 border-none rounded-lg text-sm focus:ring-2 focus:ring-primary/20"
+                placeholder="Search menu items..."
+                type="text"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+              />
             </div>
-            <div>
-              <h1 className="text-slate-900 dark:text-white text-base font-bold leading-none">
-                HungerRush
-              </h1>
-              <p className="text-primary text-xs font-medium">Restaurant Management</p>
-            </div>
+            <button
+              className="bg-primary text-white px-5 py-2 rounded-lg font-semibold text-sm hover:bg-primary/90"
+              type="button"
+              onClick={() => {
+                setForm(createInitialFormState());
+                setPhotoFiles([]);
+                setIsModalOpen(true);
+              }}
+            >
+              Add New Item
+            </button>
+          </>
+        }
+      >
+        {error ? (
+          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 text-red-700 px-4 py-3 text-sm">
+            {error}
           </div>
-          <nav className="flex-1 px-4 py-4 space-y-1">
-            <a
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors"
-              href="#"
-              onClick={handleNav("dashboard")}
-            >
-              <span className="material-symbols-outlined">dashboard</span>
-              <span className="text-sm font-medium">Dashboard</span>
-            </a>
-            <a
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors"
-              href="#"
-              onClick={handleNav("orders")}
-            >
-              <span className="material-symbols-outlined">receipt_long</span>
-              <span className="text-sm font-medium">Orders</span>
-            </a>
-            <a
-              className="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary text-white"
-              href="#"
-              onClick={handleNav("menu")}
-            >
-              <span className="material-symbols-outlined">menu_book</span>
-              <span className="text-sm font-medium">Menu</span>
-            </a>
-            <a
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors"
-              href="#"
-              onClick={handleNav("videos")}
-            >
-              <span className="material-symbols-outlined">videocam</span>
-              <span className="text-sm font-medium">Videos</span>
-            </a>
-            <a
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors"
-              href="#"
-              onClick={handleNav("reviews")}
-            >
-              <span className="material-symbols-outlined">star</span>
-              <span className="text-sm font-medium">Reviews</span>
-            </a>
-            <a
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors"
-              href="#"
-              onClick={handleNav("loyalty")}
-            >
-              <span className="material-symbols-outlined">card_membership</span>
-              <span className="text-sm font-medium">Loyalty</span>
-            </a>
-            <a
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors"
-              href="#"
-              onClick={handleNav("analytics")}
-            >
-              <span className="material-symbols-outlined">monitoring</span>
-              <span className="text-sm font-medium">Analytics</span>
-            </a>
-          </nav>
-          <div className="p-4 border-t border-primary/10">
-            <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-primary/5">
-              <div className="size-10 rounded-full bg-slate-300 flex items-center justify-center">
-                <span className="material-symbols-outlined text-slate-500">person</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold truncate">{user?.name || "Restaurant User"}</p>
-                <p className="text-xs text-slate-500 truncate">
-                  {String(user?.role || "restaurant_owner").replace("_", " ")}
-                </p>
-              </div>
+        ) : null}
+
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-6">
+          <button
+            className={
+              activeCategoryFilter === "all"
+                ? "px-4 py-2 rounded-full bg-primary text-white text-sm font-semibold"
+                : "px-4 py-2 rounded-full bg-white border border-primary/10 text-sm font-medium hover:bg-primary/5"
+            }
+            type="button"
+            onClick={() => setActiveCategoryFilter("all")}
+          >
+            All Items
+          </button>
+          {categories.map((category) => {
+            const key = String(category.id);
+            return (
               <button
-                className="material-symbols-outlined text-slate-400 text-sm hover:text-red-500 transition-colors"
-                type="button"
-                onClick={onLogout}
-                title="Logout"
-              >
-                logout
-              </button>
-            </div>
-          </div>
-        </aside>
-        <main className="ml-64 flex-1 flex flex-col">
-          <header className="h-20 flex items-center justify-between px-8 bg-white/80 dark:bg-background-dark/80 backdrop-blur-md sticky top-0 z-10 border-b border-primary/5">
-            <div className="flex items-center gap-8">
-              <h2 className="text-xl font-bold tracking-tight">Menu Management</h2>
-              <div className="relative w-64">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">
-                  search
-                </span>
-                <input
-                  className="w-full pl-10 pr-4 py-2 bg-primary/5 border-none rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:bg-white dark:focus:bg-background-dark transition-all placeholder:text-slate-400"
-                  placeholder="Search menu items..."
-                  type="text"
-                  value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                />
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <button
-                className="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-lg font-bold text-sm shadow-md hover:shadow-lg hover:bg-primary/90 transition-all"
-                type="button"
-                onClick={() => setIsModalOpen(true)}
-              >
-                <span className="material-symbols-outlined text-lg">add</span>
-                <span>Add New Item</span>
-              </button>
-            </div>
-          </header>
-          <div className="px-8 py-6">
-            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-              <button
+                key={category.id}
                 className={
-                  activeCategoryFilter === "all"
-                    ? "px-6 py-2 rounded-full bg-primary text-white text-sm font-medium whitespace-nowrap"
-                    : "px-6 py-2 rounded-full bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-primary/10 text-sm font-medium whitespace-nowrap hover:border-primary/40 transition-colors"
+                  activeCategoryFilter === key
+                    ? "px-4 py-2 rounded-full bg-primary text-white text-sm font-semibold"
+                    : "px-4 py-2 rounded-full bg-white border border-primary/10 text-sm font-medium hover:bg-primary/5"
                 }
                 type="button"
-                onClick={() => setActiveCategoryFilter("all")}
+                onClick={() => setActiveCategoryFilter(key)}
               >
-                All Items
+                {category.name}
               </button>
-              {categories.map((category) => {
-                const key = String(category.id);
-                const isActive = activeCategoryFilter === key;
+            );
+          })}
+        </div>
 
-                return (
-                  <button
-                    key={category.id}
-                    className={
-                      isActive
-                        ? "px-6 py-2 rounded-full bg-primary text-white text-sm font-medium whitespace-nowrap"
-                        : "px-6 py-2 rounded-full bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-primary/10 text-sm font-medium whitespace-nowrap hover:border-primary/40 transition-colors"
-                    }
-                    type="button"
-                    onClick={() => setActiveCategoryFilter(key)}
-                  >
-                    {category.name}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          <div className="px-8 pb-12">
-            {error ? (
-              <div className="mb-6 rounded-xl border border-red-200 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-300 px-4 py-3 text-sm">
-                {error}
-              </div>
-            ) : null}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+          {filteredItems.map((item) => (
+            <MenuCard
+              key={item.id}
+              item={item}
+              categoryName={categoriesById[String(item?.category_id)]?.name || ""}
+              isUpdating={updatingItemId === item.id}
+              onDelete={handleDelete}
+              onToggleAvailability={handleToggleAvailability}
+            />
+          ))}
+        </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredItems.map((item) => (
-                <MenuCard
-                  key={item.id}
-                  item={item}
-                  categoryName={categoriesById[String(item?.category_id)]?.name || ""}
-                  onDelete={handleDelete}
-                  onToggleAvailability={handleToggleAvailability}
-                  isUpdating={updatingItemId === item.id}
-                />
-              ))}
-            </div>
-            {!filteredItems.length ? (
-              <div className="mt-8 text-sm text-slate-500">
-                {loading ? "Loading menu..." : "No menu items match your filter."}
-              </div>
-            ) : null}
-          </div>
-          <button
-            className="fixed bottom-8 right-8 lg:hidden bg-primary text-white w-14 h-14 rounded-full shadow-2xl flex items-center justify-center text-2xl z-20"
-            type="button"
-            onClick={() => setIsModalOpen(true)}
-          >
-            <span className="material-symbols-outlined">add</span>
-          </button>
-        </main>
-      </div>
+        {!filteredItems.length ? (
+          <div className="mt-8 text-sm text-slate-500">{loading ? "Loading menu..." : "No items found."}</div>
+        ) : null}
+      </RestaurantShell>
 
       {isModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm relative">
-          <button
-            className="absolute inset-0"
-            type="button"
-            aria-label="Close modal"
-            onClick={() => setIsModalOpen(false)}
-          ></button>
-          <div className="relative bg-white dark:bg-slate-900 w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60">
+          <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="text-xl font-bold">Add New Menu Item</h3>
                 <p className="text-slate-500 text-sm">This will create a real API record.</p>
               </div>
               <button
-                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
                 type="button"
-                onClick={() => setIsModalOpen(false)}
+                onClick={closeModal}
               >
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
-            <form className="flex-1 overflow-y-auto p-6 space-y-6" onSubmit={handleCreateItem}>
+
+            <form className="p-6 space-y-4" onSubmit={handleCreateItem}>
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2 sm:col-span-1">
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">
-                    Item Name
-                  </label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Item Name</label>
                   <input
-                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border-none rounded-lg focus:ring-2 focus:ring-primary/20 text-sm placeholder:text-slate-400"
+                    className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg focus:ring-2 focus:ring-primary/20 text-sm"
                     placeholder="e.g. Classic Burger"
                     type="text"
                     value={form.name}
@@ -497,11 +390,9 @@ export default function MenuManagementModal({ onNavigate, token, user, onLogout 
                   />
                 </div>
                 <div className="col-span-2 sm:col-span-1">
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">
-                    Price ($)
-                  </label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Price ($)</label>
                   <input
-                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border-none rounded-lg focus:ring-2 focus:ring-primary/20 text-sm placeholder:text-slate-400"
+                    className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg focus:ring-2 focus:ring-primary/20 text-sm"
                     placeholder="0.00"
                     step="0.01"
                     min="0"
@@ -512,13 +403,12 @@ export default function MenuManagementModal({ onNavigate, token, user, onLogout 
                   />
                 </div>
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">
-                    Category
-                  </label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Category</label>
                   <select
-                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border-none rounded-lg focus:ring-2 focus:ring-primary/20 text-sm appearance-none cursor-pointer"
+                    className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg focus:ring-2 focus:ring-primary/20 text-sm"
                     value={form.categoryId}
                     onChange={(event) =>
                       setForm((previous) => ({ ...previous, categoryId: event.target.value }))
@@ -532,12 +422,11 @@ export default function MenuManagementModal({ onNavigate, token, user, onLogout 
                     ))}
                   </select>
                 </div>
+
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">
-                    Prep Time (mins)
-                  </label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Prep Time (mins)</label>
                   <input
-                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border-none rounded-lg focus:ring-2 focus:ring-primary/20 text-sm placeholder:text-slate-400"
+                    className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg focus:ring-2 focus:ring-primary/20 text-sm"
                     placeholder="Optional"
                     type="number"
                     min="1"
@@ -548,13 +437,14 @@ export default function MenuManagementModal({ onNavigate, token, user, onLogout 
                   />
                 </div>
               </div>
+
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
                   New Category (Optional)
                 </label>
                 <input
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border-none rounded-lg focus:ring-2 focus:ring-primary/20 text-sm placeholder:text-slate-400"
-                  placeholder="If no category exists, type one here"
+                  className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg focus:ring-2 focus:ring-primary/20 text-sm"
+                  placeholder="Type a new category name"
                   type="text"
                   value={form.newCategoryName}
                   onChange={(event) =>
@@ -562,12 +452,11 @@ export default function MenuManagementModal({ onNavigate, token, user, onLogout 
                   }
                 />
               </div>
+
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">
-                  Description
-                </label>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Description</label>
                 <textarea
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border-none rounded-lg focus:ring-2 focus:ring-primary/20 text-sm placeholder:text-slate-400 resize-none"
+                  className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg focus:ring-2 focus:ring-primary/20 text-sm resize-none"
                   placeholder="Describe the item"
                   rows="3"
                   value={form.description}
@@ -576,35 +465,73 @@ export default function MenuManagementModal({ onNavigate, token, user, onLogout 
                   }
                 ></textarea>
               </div>
-              <div className="flex items-center justify-between p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-                <div className="flex flex-col">
-                  <span className="text-sm font-bold">Instantly Available</span>
-                  <span className="text-xs text-slate-500">
-                    Show this item on the menu right away
-                  </span>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                  Food Photo(s)
+                </label>
+                <input
+                  className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg focus:ring-2 focus:ring-primary/20 text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-primary file:text-white file:text-xs file:font-semibold hover:file:bg-primary/90"
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg,image/webp"
+                  multiple
+                  onChange={(event) => {
+                    setPhotoFiles(Array.from(event.target.files || []));
+                  }}
+                />
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Select one or many images from your computer.
+                </p>
+                {photoPreviewUrls.length ? (
+                  <div className="mt-3 grid grid-cols-4 gap-2">
+                    {photoPreviewUrls.map((previewUrl, index) => (
+                      <img
+                        key={previewUrl}
+                        alt={`Preview ${index + 1}`}
+                        className="h-16 w-full object-cover rounded-md border border-slate-200"
+                        src={previewUrl}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="flex items-center justify-between p-4 rounded-xl bg-slate-50">
+                <div>
+                  <span className="text-sm font-bold">Available now</span>
+                  <p className="text-xs text-slate-500">Show this item to customers immediately.</p>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
+                <label className="inline-flex items-center cursor-pointer">
                   <input
-                    className="sr-only peer"
+                    className="sr-only"
                     type="checkbox"
                     checked={form.isAvailable}
                     onChange={(event) =>
                       setForm((previous) => ({ ...previous, isAvailable: event.target.checked }))
                     }
                   />
-                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                  <span
+                    className={
+                      form.isAvailable
+                        ? "px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700"
+                        : "px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700"
+                    }
+                  >
+                    {form.isAvailable ? "YES" : "NO"}
+                  </span>
                 </label>
               </div>
+
               <div className="pt-2 flex items-center justify-end gap-3">
                 <button
-                  className="px-5 py-2.5 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors"
+                  className="px-5 py-2.5 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-100"
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={closeModal}
                 >
                   Cancel
                 </button>
                 <button
-                  className="px-8 py-2.5 bg-primary text-white rounded-lg text-sm font-bold shadow-md hover:shadow-lg hover:bg-primary/90 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="px-8 py-2.5 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed"
                   type="submit"
                   disabled={isSaving}
                 >
@@ -615,6 +542,6 @@ export default function MenuManagementModal({ onNavigate, token, user, onLogout 
           </div>
         </div>
       ) : null}
-    </div>
+    </>
   );
 }

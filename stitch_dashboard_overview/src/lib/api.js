@@ -13,6 +13,24 @@ function buildApiUrl(path) {
   return `${normalizedBase}${normalizedPath}`;
 }
 
+function withQuery(path, params = {}) {
+  const search = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") {
+      return;
+    }
+    search.set(key, String(value));
+  });
+
+  const queryString = search.toString();
+  if (!queryString) {
+    return path;
+  }
+
+  return `${path}${path.includes("?") ? "&" : "?"}${queryString}`;
+}
+
 export class ApiError extends Error {
   constructor(message, status = 0, payload = null) {
     super(message);
@@ -24,15 +42,21 @@ export class ApiError extends Error {
 
 async function request(path, options = {}) {
   const { token, body, headers = {}, ...rest } = options;
+  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
   const response = await fetch(buildApiUrl(path), {
     ...rest,
     headers: {
       Accept: "application/json",
-      ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+      ...(!isFormData && body !== undefined ? { "Content-Type": "application/json" } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body:
+      body === undefined
+        ? undefined
+        : isFormData
+          ? body
+          : JSON.stringify(body),
   });
 
   const rawText = await response.text();
@@ -56,6 +80,13 @@ async function request(path, options = {}) {
 
 function unwrapData(payload) {
   return payload?.data ?? null;
+}
+
+function unwrapList(payload) {
+  return {
+    items: Array.isArray(payload?.data) ? payload.data : [],
+    meta: payload?.meta || null,
+  };
 }
 
 export const api = {
@@ -111,6 +142,25 @@ export const api = {
     );
   },
 
+  async getRestaurantSettings(token) {
+    return unwrapData(
+      await request("/v1/restaurant/settings", {
+        method: "GET",
+        token,
+      })
+    );
+  },
+
+  async updateRestaurantSettings(token, body) {
+    return unwrapData(
+      await request("/v1/restaurant/settings", {
+        method: "PATCH",
+        token,
+        body,
+      })
+    );
+  },
+
   async getMenuCategories(token) {
     return unwrapData(
       await request("/v1/restaurant/menu/categories", {
@@ -145,6 +195,21 @@ export const api = {
         method: "POST",
         token,
         body,
+      })
+    );
+  },
+
+  async uploadMenuImages(token, files) {
+    const formData = new FormData();
+    Array.from(files || []).forEach((file) => {
+      formData.append("images[]", file);
+    });
+
+    return unwrapData(
+      await request("/v1/restaurant/menu/images/upload", {
+        method: "POST",
+        token,
+        body: formData,
       })
     );
   },
@@ -187,12 +252,146 @@ export const api = {
     );
   },
 
+  async createQuickOrder(token, body) {
+    return unwrapData(
+      await request("/v1/restaurant/orders/quick", {
+        method: "POST",
+        token,
+        body,
+      })
+    );
+  },
+
   async updateOrderStatus(token, orderId, status) {
     return unwrapData(
       await request(`/v1/restaurant/orders/${orderId}/status`, {
         method: "PATCH",
         token,
         body: { status },
+      })
+    );
+  },
+
+  async getVideos(token, params = {}) {
+    const payload = await request(
+      withQuery("/v1/restaurant/videos", {
+        q: params.search,
+        status: params.status,
+        page: params.page,
+      }),
+      {
+        method: "GET",
+        token,
+      }
+    );
+
+    return unwrapList(payload);
+  },
+
+  async createVideo(token, body) {
+    return unwrapData(
+      await request("/v1/restaurant/videos", {
+        method: "POST",
+        token,
+        body,
+      })
+    );
+  },
+
+  async updateVideo(token, videoId, body) {
+    return unwrapData(
+      await request(`/v1/restaurant/videos/${videoId}`, {
+        method: "PATCH",
+        token,
+        body,
+      })
+    );
+  },
+
+  async deleteVideo(token, videoId) {
+    return unwrapData(
+      await request(`/v1/restaurant/videos/${videoId}`, {
+        method: "DELETE",
+        token,
+      })
+    );
+  },
+
+  async getReviewSummary(token) {
+    return unwrapData(
+      await request("/v1/restaurant/reviews/summary", {
+        method: "GET",
+        token,
+      })
+    );
+  },
+
+  async getReviews(token, params = {}) {
+    const payload = await request(
+      withQuery("/v1/restaurant/reviews", {
+        q: params.search,
+        rating: params.rating,
+        replied: params.replied,
+        page: params.page,
+      }),
+      {
+        method: "GET",
+        token,
+      }
+    );
+
+    return unwrapList(payload);
+  },
+
+  async replyToReview(token, reviewId, reply) {
+    return unwrapData(
+      await request(`/v1/restaurant/reviews/${reviewId}/reply`, {
+        method: "PATCH",
+        token,
+        body: { reply },
+      })
+    );
+  },
+
+  async getLoyaltyOverview(token, params = {}) {
+    return unwrapData(
+      await request(
+        withQuery("/v1/restaurant/loyalty/overview", {
+          q: params.search,
+        }),
+        {
+          method: "GET",
+          token,
+        }
+      )
+    );
+  },
+
+  async createLoyaltyReward(token, body) {
+    return unwrapData(
+      await request("/v1/restaurant/loyalty/rewards", {
+        method: "POST",
+        token,
+        body,
+      })
+    );
+  },
+
+  async updateLoyaltyReward(token, rewardId, body) {
+    return unwrapData(
+      await request(`/v1/restaurant/loyalty/rewards/${rewardId}`, {
+        method: "PATCH",
+        token,
+        body,
+      })
+    );
+  },
+
+  async getAnalytics(token, rangeDays = 30) {
+    return unwrapData(
+      await request(withQuery("/v1/restaurant/analytics", { range_days: rangeDays }), {
+        method: "GET",
+        token,
       })
     );
   },

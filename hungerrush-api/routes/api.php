@@ -4,10 +4,16 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\Customer\CartController;
 use App\Http\Controllers\Api\V1\Customer\OrderController as CustomerOrderController;
 use App\Http\Controllers\Api\V1\Customer\RestaurantController as CustomerRestaurantController;
+use App\Http\Controllers\Api\V1\Restaurant\AnalyticsController;
+use App\Http\Controllers\Api\V1\Restaurant\LoyaltyController;
 use App\Http\Controllers\Api\V1\Restaurant\MenuCategoryController;
+use App\Http\Controllers\Api\V1\Restaurant\MenuImageUploadController;
 use App\Http\Controllers\Api\V1\Restaurant\MenuItemController;
 use App\Http\Controllers\Api\V1\Restaurant\OrderController;
 use App\Http\Controllers\Api\V1\Restaurant\ProfileController;
+use App\Http\Controllers\Api\V1\Restaurant\ReviewController;
+use App\Http\Controllers\Api\V1\Restaurant\SettingsController;
+use App\Http\Controllers\Api\V1\Restaurant\VideoController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -26,6 +32,8 @@ Route::prefix('v1')->group(function () {
     Route::prefix('restaurant')->middleware('auth:sanctum')->group(function () {
         Route::get('/profile', [ProfileController::class, 'show']);
         Route::patch('/profile', [ProfileController::class, 'update']);
+        Route::get('/settings', [SettingsController::class, 'show']);
+        Route::patch('/settings', [SettingsController::class, 'update']);
 
         Route::get('/menu/categories', [MenuCategoryController::class, 'index']);
         Route::post('/menu/categories', [MenuCategoryController::class, 'store']);
@@ -37,10 +45,27 @@ Route::prefix('v1')->group(function () {
         Route::patch('/menu/items/{menuItem}', [MenuItemController::class, 'update']);
         Route::patch('/menu/items/{menuItem}/availability', [MenuItemController::class, 'updateAvailability']);
         Route::delete('/menu/items/{menuItem}', [MenuItemController::class, 'destroy']);
+        Route::post('/menu/images/upload', [MenuImageUploadController::class, 'store']);
 
         Route::get('/orders', [OrderController::class, 'index']);
         Route::get('/orders/{order}', [OrderController::class, 'show']);
+        Route::post('/orders/quick', [OrderController::class, 'storeQuickOrder']);
         Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']);
+
+        Route::get('/videos', [VideoController::class, 'index']);
+        Route::post('/videos', [VideoController::class, 'store']);
+        Route::patch('/videos/{video}', [VideoController::class, 'update']);
+        Route::delete('/videos/{video}', [VideoController::class, 'destroy']);
+
+        Route::get('/reviews/summary', [ReviewController::class, 'summary']);
+        Route::get('/reviews', [ReviewController::class, 'index']);
+        Route::patch('/reviews/{review}/reply', [ReviewController::class, 'reply']);
+
+        Route::get('/loyalty/overview', [LoyaltyController::class, 'overview']);
+        Route::post('/loyalty/rewards', [LoyaltyController::class, 'storeReward']);
+        Route::patch('/loyalty/rewards/{loyaltyReward}', [LoyaltyController::class, 'updateReward']);
+
+        Route::get('/analytics', [AnalyticsController::class, 'overview']);
     });
 
     Route::prefix('customer')->middleware('auth:sanctum')->group(function () {

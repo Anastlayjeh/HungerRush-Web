@@ -19,6 +19,7 @@ class OrderResource extends JsonResource
             'total' => (float) $this->total,
             'status' => $this->status?->value ?? $this->status,
             'payment_status' => $this->payment_status?->value ?? $this->payment_status,
+            'is_quick_order' => (bool) $this->is_quick_order,
             'items' => $this->whenLoaded('items', function () {
                 return $this->items->map(fn ($item) => [
                     'id' => $item->id,

@@ -22,6 +22,7 @@ class Order extends Model
         'total',
         'status',
         'payment_status',
+        'is_quick_order',
     ];
 
     protected function casts(): array
@@ -32,6 +33,7 @@ class Order extends Model
             'total' => 'decimal:2',
             'status' => OrderStatus::class,
             'payment_status' => PaymentStatus::class,
+            'is_quick_order' => 'boolean',
         ];
     }
 
@@ -53,5 +55,10 @@ class Order extends Model
     public function statusHistory(): HasMany
     {
         return $this->hasMany(OrderStatusHistory::class);
+    }
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class);
     }
 }

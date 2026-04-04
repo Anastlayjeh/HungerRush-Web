@@ -16,6 +16,8 @@ class UpdateMenuItemRequest extends FormRequest
         return [
             'name' => ['sometimes', 'string', 'max:180'],
             'description' => ['nullable', 'string'],
+            'image_urls' => ['nullable', 'array', 'max:8'],
+            'image_urls.*' => ['url', 'max:2048'],
             'price' => ['sometimes', 'numeric', 'min:0'],
             'is_available' => ['sometimes', 'boolean'],
             'prep_time' => ['sometimes', 'integer', 'min:1'],

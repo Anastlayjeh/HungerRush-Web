@@ -7,6 +7,7 @@ import CreateVideoPost from "./pages/CreateVideoPost.jsx";
 import CustomerReviews from "./pages/CustomerReviews.jsx";
 import LoyaltyRewards from "./pages/LoyaltyRewards.jsx";
 import AnalyticsInsights from "./pages/AnalyticsInsights.jsx";
+import RestaurantSettings from "./pages/RestaurantSettings.jsx";
 import { API_BASE_URL, api } from "./lib/api.js";
 
 const pageMap = {
@@ -18,6 +19,7 @@ const pageMap = {
   reviews: CustomerReviews,
   loyalty: LoyaltyRewards,
   analytics: AnalyticsInsights,
+  settings: RestaurantSettings,
 };
 
 const TOKEN_STORAGE_KEY = "hungerrush_api_token";

@@ -43,4 +43,24 @@ class User extends Authenticatable
     {
         return $this->hasMany(Order::class, 'customer_id');
     }
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class, 'customer_id');
+    }
+
+    public function reviewReplies(): HasMany
+    {
+        return $this->hasMany(Review::class, 'replied_by');
+    }
+
+    public function videoEngagements(): HasMany
+    {
+        return $this->hasMany(VideoEngagement::class);
+    }
+
+    public function loyaltyMemberships(): HasMany
+    {
+        return $this->hasMany(LoyaltyMember::class, 'customer_id');
+    }
 }

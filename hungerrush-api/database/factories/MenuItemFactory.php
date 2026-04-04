@@ -22,6 +22,7 @@ class MenuItemFactory extends Factory
             'category_id' => MenuCategory::factory(),
             'name' => fake()->words(2, true),
             'description' => fake()->sentence(),
+            'image_urls' => [fake()->imageUrl(900, 600, 'food', true)],
             'price' => fake()->randomFloat(2, 5, 50),
             'is_available' => true,
             'prep_time' => fake()->numberBetween(10, 30),

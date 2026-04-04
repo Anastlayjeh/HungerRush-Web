@@ -17,7 +17,15 @@ class Restaurant extends Model
         'name',
         'description',
         'status',
+        'settings',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'settings' => 'array',
+        ];
+    }
 
     public function owner(): BelongsTo
     {
@@ -37,6 +45,26 @@ class Restaurant extends Model
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
+    }
+
+    public function videos(): HasMany
+    {
+        return $this->hasMany(Video::class);
+    }
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class);
+    }
+
+    public function loyaltyRewards(): HasMany
+    {
+        return $this->hasMany(LoyaltyReward::class);
+    }
+
+    public function loyaltyMembers(): HasMany
+    {
+        return $this->hasMany(LoyaltyMember::class);
     }
 
     public function menuItems(): HasManyThrough
