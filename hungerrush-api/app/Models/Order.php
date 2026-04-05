@@ -47,6 +47,11 @@ class Order extends Model
         return $this->belongsTo(Restaurant::class);
     }
 
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(RestaurantBranch::class, 'branch_id');
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class);

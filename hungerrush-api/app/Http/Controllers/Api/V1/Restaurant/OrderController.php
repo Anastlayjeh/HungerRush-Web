@@ -26,6 +26,10 @@ class OrderController extends Controller
         $restaurant = $this->resolveRestaurant();
         $orders = Order::query()
             ->where('restaurant_id', $restaurant->id)
+            ->with([
+                'customer:id,name,email,phone',
+                'branch:id,name,address',
+            ])
             ->latest()
             ->paginate(15);
 
@@ -39,7 +43,12 @@ class OrderController extends Controller
     public function show(Order $order)
     {
         $this->authorize('view', $order);
-        $order->load(['items', 'statusHistory']);
+        $order->load([
+            'customer:id,name,email,phone',
+            'branch:id,name,address',
+            'items.menuItem:id,name,description,price,image_urls',
+            'statusHistory',
+        ]);
 
         return $this->successResponse($order);
     }

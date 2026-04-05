@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\Restaurant;
 use App\Models\Video;
 use App\Models\VideoEngagement;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -15,15 +16,8 @@ class AnalyticsController extends Controller
     public function overview(Request $request)
     {
         $restaurant = $this->resolveRestaurant();
-        $rangeDays = (int) $request->query('range_days', 30);
-        if (!in_array($rangeDays, [7, 30, 90], true)) {
-            $rangeDays = 30;
-        }
-
-        $end = now()->endOfDay();
-        $start = now()->subDays($rangeDays - 1)->startOfDay();
-        $prevEnd = (clone $start)->subSecond();
-        $prevStart = (clone $start)->subDays($rangeDays)->startOfDay();
+        $period = $this->resolvePeriod($request);
+        [$start, $end, $prevStart, $prevEnd] = $this->resolvePeriodWindow($period);
 
         $currentOrders = Order::query()
             ->where('restaurant_id', $restaurant->id)
@@ -31,11 +25,13 @@ class AnalyticsController extends Controller
         $previousOrders = Order::query()
             ->where('restaurant_id', $restaurant->id)
             ->whereBetween('created_at', [$prevStart, $prevEnd]);
+        $currentCompletedOrders = (clone $currentOrders)->whereIn('status', $this->doneOrderStatuses());
+        $previousCompletedOrders = (clone $previousOrders)->whereIn('status', $this->doneOrderStatuses());
 
-        $currentRevenue = (float) (clone $currentOrders)->sum('total');
-        $previousRevenue = (float) (clone $previousOrders)->sum('total');
-        $currentOrderCount = (int) (clone $currentOrders)->count();
-        $previousOrderCount = (int) (clone $previousOrders)->count();
+        $currentRevenue = (float) (clone $currentCompletedOrders)->sum('total');
+        $previousRevenue = (float) (clone $previousCompletedOrders)->sum('total');
+        $currentOrderCount = (int) (clone $currentCompletedOrders)->count();
+        $previousOrderCount = (int) (clone $previousCompletedOrders)->count();
 
         $currentAverage = $currentOrderCount > 0 ? $currentRevenue / $currentOrderCount : 0;
         $previousAverage = $previousOrderCount > 0 ? $previousRevenue / $previousOrderCount : 0;
@@ -43,14 +39,16 @@ class AnalyticsController extends Controller
         $currentRetention = $this->calculateRetentionRate($restaurant->id, $start, $end);
         $previousRetention = $this->calculateRetentionRate($restaurant->id, $prevStart, $prevEnd);
 
-        $revenueTrend = $this->buildRevenueTrend($restaurant->id, $start, $end);
+        $revenueTrend = $this->buildRevenueTrend($restaurant->id, $start, $end, $period);
         $topDishes = $this->buildTopDishes($restaurant->id, $start, $end);
         $videoFunnel = $this->buildVideoFunnel($restaurant->id, $start, $end);
         $topVideo = $this->buildTopVideo($restaurant->id, $start, $end);
         $retentionMetrics = $this->buildRetentionMetrics($restaurant->id, $start, $end);
 
         return $this->successResponse([
-            'range_days' => $rangeDays,
+            'period' => $period,
+            'period_label' => $period === 'yearly' ? $start->format('Y') : $start->format('F Y'),
+            'range_days' => (int) $start->diffInDays($end) + 1,
             'metrics' => [
                 'total_revenue' => [
                     'value' => round($currentRevenue, 2),
@@ -81,11 +79,48 @@ class AnalyticsController extends Controller
         ]);
     }
 
+    private function resolvePeriod(Request $request): string
+    {
+        $period = strtolower(trim((string) $request->query('period', '')));
+        if (in_array($period, ['monthly', 'yearly'], true)) {
+            return $period;
+        }
+
+        $rangeDays = (int) $request->query('range_days', 30);
+
+        return $rangeDays >= 365 ? 'yearly' : 'monthly';
+    }
+
+    /**
+     * @return array{Carbon, Carbon, Carbon, Carbon}
+     */
+    private function resolvePeriodWindow(string $period): array
+    {
+        $now = now();
+
+        if ($period === 'yearly') {
+            $start = $now->copy()->startOfYear()->startOfDay();
+            $end = $now->copy()->endOfYear()->endOfDay();
+            $prevStart = $now->copy()->subYear()->startOfYear()->startOfDay();
+            $prevEnd = $now->copy()->subYear()->endOfYear()->endOfDay();
+
+            return [$start, $end, $prevStart, $prevEnd];
+        }
+
+        $start = $now->copy()->startOfMonth()->startOfDay();
+        $end = $now->copy()->endOfMonth()->endOfDay();
+        $prevStart = $now->copy()->subMonthNoOverflow()->startOfMonth()->startOfDay();
+        $prevEnd = $now->copy()->subMonthNoOverflow()->endOfMonth()->endOfDay();
+
+        return [$start, $end, $prevStart, $prevEnd];
+    }
+
     private function calculateRetentionRate(int $restaurantId, \DateTimeInterface $start, \DateTimeInterface $end): float
     {
         $rows = Order::query()
             ->where('restaurant_id', $restaurantId)
             ->whereBetween('created_at', [$start, $end])
+            ->whereIn('status', $this->doneOrderStatuses())
             ->selectRaw('customer_id, COUNT(*) as order_count')
             ->groupBy('customer_id')
             ->get();
@@ -100,29 +135,77 @@ class AnalyticsController extends Controller
         return round(($returningCustomers / $totalCustomers) * 100, 1);
     }
 
-    private function buildRevenueTrend(int $restaurantId, \DateTimeInterface $start, \DateTimeInterface $end): array
-    {
-        $rows = Order::query()
+    private function buildRevenueTrend(
+        int $restaurantId,
+        \DateTimeInterface $start,
+        \DateTimeInterface $end,
+        string $period
+    ): array {
+        $orders = Order::query()
             ->where('restaurant_id', $restaurantId)
             ->whereBetween('created_at', [$start, $end])
-            ->selectRaw('DATE(created_at) as day, COUNT(*) as orders_count, SUM(total) as revenue')
-            ->groupBy('day')
-            ->get()
-            ->keyBy('day');
+            ->whereIn('status', $this->doneOrderStatuses())
+            ->get(['created_at', 'total']);
+
+        if ($period === 'yearly') {
+            $bucketed = [];
+            for ($month = 1; $month <= 12; $month++) {
+                $bucketed[$month] = ['orders_count' => 0, 'revenue' => 0.0];
+            }
+
+            foreach ($orders as $order) {
+                $month = (int) $order->created_at->format('n');
+                $bucketed[$month]['orders_count']++;
+                $bucketed[$month]['revenue'] += (float) $order->total;
+            }
+
+            $year = (int) Carbon::parse($start)->format('Y');
+            $months = [];
+
+            for ($month = 1; $month <= 12; $month++) {
+                $date = Carbon::create($year, $month, 1);
+
+                $months[] = [
+                    'bucket' => $date->format('Y-m'),
+                    'day' => null,
+                    'month' => $month,
+                    'label' => $date->format('M'),
+                    'full_label' => $date->format('F Y'),
+                    'orders_count' => (int) $bucketed[$month]['orders_count'],
+                    'revenue' => round((float) $bucketed[$month]['revenue'], 2),
+                ];
+            }
+
+            return $months;
+        }
+
+        $bucketed = [];
+        foreach ($orders as $order) {
+            $day = $order->created_at->toDateString();
+            if (!isset($bucketed[$day])) {
+                $bucketed[$day] = ['orders_count' => 0, 'revenue' => 0.0];
+            }
+
+            $bucketed[$day]['orders_count']++;
+            $bucketed[$day]['revenue'] += (float) $order->total;
+        }
 
         $days = [];
-        $cursor = \Carbon\Carbon::parse($start)->startOfDay();
-        $finalDay = \Carbon\Carbon::parse($end)->startOfDay();
+        $cursor = Carbon::parse($start)->startOfDay();
+        $finalDay = Carbon::parse($end)->startOfDay();
 
         while ($cursor->lte($finalDay)) {
             $key = $cursor->toDateString();
-            $row = $rows->get($key);
+            $row = $bucketed[$key] ?? ['orders_count' => 0, 'revenue' => 0.0];
 
             $days[] = [
+                'bucket' => $key,
                 'day' => $key,
-                'label' => $cursor->format('M d'),
-                'orders_count' => (int) ($row->orders_count ?? 0),
-                'revenue' => round((float) ($row->revenue ?? 0), 2),
+                'month' => null,
+                'label' => $cursor->format('j'),
+                'full_label' => $cursor->format('M d'),
+                'orders_count' => (int) $row['orders_count'],
+                'revenue' => round((float) $row['revenue'], 2),
             ];
 
             $cursor->addDay();
@@ -138,6 +221,7 @@ class AnalyticsController extends Controller
             ->join('menu_items', 'menu_items.id', '=', 'order_items.menu_item_id')
             ->where('orders.restaurant_id', $restaurantId)
             ->whereBetween('orders.created_at', [$start, $end])
+            ->whereIn('orders.status', $this->doneOrderStatuses())
             ->selectRaw('menu_items.id as menu_item_id, menu_items.name, SUM(order_items.quantity) as sold')
             ->groupBy('menu_items.id', 'menu_items.name')
             ->orderByDesc('sold')
@@ -182,6 +266,7 @@ class AnalyticsController extends Controller
             Order::query()
                 ->where('restaurant_id', $restaurantId)
                 ->whereBetween('created_at', [$start, $end])
+                ->whereIn('status', $this->doneOrderStatuses())
                 ->count()
         );
 
@@ -235,6 +320,7 @@ class AnalyticsController extends Controller
         $customerRows = Order::query()
             ->where('restaurant_id', $restaurantId)
             ->whereBetween('created_at', [$start, $end])
+            ->whereIn('status', $this->doneOrderStatuses())
             ->selectRaw('customer_id, COUNT(*) as order_count')
             ->groupBy('customer_id')
             ->get();
@@ -263,6 +349,11 @@ class AnalyticsController extends Controller
         }
 
         return round((($currentValue - $previousValue) / abs($previousValue)) * 100, 1);
+    }
+
+    private function doneOrderStatuses(): array
+    {
+        return ['delivered'];
     }
 
     private function resolveRestaurant(): Restaurant

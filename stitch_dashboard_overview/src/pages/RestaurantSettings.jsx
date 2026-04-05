@@ -21,6 +21,7 @@ export default function RestaurantSettings({ onNavigate, token, user, onLogout }
   const [form, setForm] = useState(initialForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -83,6 +84,29 @@ export default function RestaurantSettings({ onNavigate, token, user, onLogout }
     }
   };
 
+  const isRestaurantActive = form.status === "active";
+
+  const handleToggleStatus = async () => {
+    if (loading || updatingStatus) {
+      return;
+    }
+
+    const nextStatus = isRestaurantActive ? "inactive" : "active";
+    setUpdatingStatus(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      await api.updateRestaurantSettings(token, { status: nextStatus });
+      setForm((previous) => ({ ...previous, status: nextStatus }));
+      setSuccess(`Restaurant marked as ${nextStatus}.`);
+    } catch (requestError) {
+      setError(requestError?.message || "Failed to update restaurant status.");
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
   return (
     <RestaurantShell
       activePage="settings"
@@ -133,16 +157,39 @@ export default function RestaurantSettings({ onNavigate, token, user, onLogout }
             ></textarea>
           </div>
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Status</label>
-            <select
-              className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg text-sm"
-              value={form.status}
-              onChange={(event) => setForm((prev) => ({ ...prev, status: event.target.value }))}
-              disabled={loading}
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Status</label>
+            <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-slate-50">
+              <div>
+                <p className="text-sm font-semibold text-slate-700">
+                  {isRestaurantActive ? "Restaurant Active" : "Restaurant Inactive"}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {isRestaurantActive
+                    ? "Customers can place orders."
+                    : "Customers cannot place new orders."}
+                </p>
+              </div>
+              <button
+                className={
+                  isRestaurantActive
+                    ? "w-12 h-7 rounded-full bg-emerald-500 relative disabled:opacity-60"
+                    : "w-12 h-7 rounded-full bg-slate-300 relative disabled:opacity-60"
+                }
+                type="button"
+                onClick={handleToggleStatus}
+                disabled={loading || updatingStatus}
+                title={isRestaurantActive ? "Set inactive" : "Set active"}
+              >
+                <span
+                  className={
+                    isRestaurantActive
+                      ? "absolute top-1 left-6 w-5 h-5 rounded-full bg-white transition-all"
+                      : "absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-all"
+                  }
+                ></span>
+              </button>
+            </div>
+            {updatingStatus ? <p className="mt-1 text-xs text-slate-500">Updating status...</p> : null}
           </div>
         </section>
 

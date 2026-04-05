@@ -7,8 +7,6 @@ function initialForm() {
   return {
     title: "",
     description: "",
-    mediaUrl: "",
-    thumbnailUrl: "",
     menuItemId: "",
   };
 }
@@ -20,6 +18,10 @@ export default function CreateVideoPost({ onNavigate, token, user, onLogout }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [videoFile, setVideoFile] = useState(null);
+  const [thumbnailFile, setThumbnailFile] = useState(null);
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState("");
+  const [thumbnailPreviewUrl, setThumbnailPreviewUrl] = useState("");
 
   useEffect(() => {
     if (!token) {
@@ -52,18 +54,46 @@ export default function CreateVideoPost({ onNavigate, token, user, onLogout }) {
     };
   }, [token]);
 
+  useEffect(() => {
+    if (!videoFile) {
+      setVideoPreviewUrl("");
+      return undefined;
+    }
+
+    const objectUrl = URL.createObjectURL(videoFile);
+    setVideoPreviewUrl(objectUrl);
+
+    return () => {
+      URL.revokeObjectURL(objectUrl);
+    };
+  }, [videoFile]);
+
+  useEffect(() => {
+    if (!thumbnailFile) {
+      setThumbnailPreviewUrl("");
+      return undefined;
+    }
+
+    const objectUrl = URL.createObjectURL(thumbnailFile);
+    setThumbnailPreviewUrl(objectUrl);
+
+    return () => {
+      URL.revokeObjectURL(objectUrl);
+    };
+  }, [thumbnailFile]);
+
   const selectedMenuItem = useMemo(
     () => menuItems.find((item) => String(item.id) === form.menuItemId) || null,
     [menuItems, form.menuItemId]
   );
 
   const previewThumbnail =
-    form.thumbnailUrl.trim() ||
+    thumbnailPreviewUrl ||
     "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=900&q=80";
 
   const createVideo = async (status) => {
-    if (!form.title.trim() || !form.mediaUrl.trim()) {
-      setError("Video title and media URL are required.");
+    if (!form.title.trim() || !videoFile) {
+      setError("Video title and a local video file are required.");
       return;
     }
 
@@ -71,17 +101,40 @@ export default function CreateVideoPost({ onNavigate, token, user, onLogout }) {
     setError("");
     setSuccessMessage("");
     try {
+      const uploadedVideo = await api.uploadVideoAsset(token, {
+        assetType: "video",
+        file: videoFile,
+      });
+      const mediaUrl = String(uploadedVideo?.url || "").trim();
+      if (!mediaUrl) {
+        throw new Error("Video upload failed. Please try again.");
+      }
+
+      let thumbnailUrl;
+      if (thumbnailFile) {
+        const uploadedThumbnail = await api.uploadVideoAsset(token, {
+          assetType: "thumbnail",
+          file: thumbnailFile,
+        });
+        thumbnailUrl = String(uploadedThumbnail?.url || "").trim() || undefined;
+        if (!thumbnailUrl) {
+          throw new Error("Thumbnail upload failed. Please try again.");
+        }
+      }
+
       await api.createVideo(token, {
         title: form.title.trim(),
         description: form.description.trim() || undefined,
-        media_url: form.mediaUrl.trim(),
-        thumbnail_url: form.thumbnailUrl.trim() || undefined,
+        media_url: mediaUrl,
+        thumbnail_url: thumbnailUrl,
         menu_item_id: form.menuItemId ? Number(form.menuItemId) : null,
         status,
       });
 
       setSuccessMessage(status === "published" ? "Video published successfully." : "Draft saved.");
       setForm(initialForm());
+      setVideoFile(null);
+      setThumbnailFile(null);
       window.setTimeout(() => onNavigate?.("videos"), 600);
     } catch (requestError) {
       setError(requestError?.message || "Failed to create video.");
@@ -171,27 +224,39 @@ export default function CreateVideoPost({ onNavigate, token, user, onLogout }) {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2">Video URL</label>
+                <label className="block text-sm font-semibold mb-2">Video File</label>
                 <input
-                  className="w-full p-3 bg-slate-50 border-slate-200 rounded-xl focus:ring-primary/50 focus:border-primary"
-                  placeholder="https://example.com/video.mp4"
-                  type="url"
-                  value={form.mediaUrl}
-                  onChange={(event) => setForm((previous) => ({ ...previous, mediaUrl: event.target.value }))}
+                  className="w-full p-3 bg-slate-50 border-slate-200 rounded-xl focus:ring-primary/50 focus:border-primary file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-primary file:text-white file:text-xs file:font-semibold hover:file:bg-primary/90"
+                  type="file"
+                  accept="video/mp4,video/quicktime,video/webm,video/x-msvideo,video/mpeg,video/x-m4v"
+                  onChange={(event) => setVideoFile(event.target.files?.[0] || null)}
                 />
+                <p className="mt-1 text-xs text-slate-500">
+                  {videoFile ? `Selected: ${videoFile.name}` : "Select a video from your computer."}
+                </p>
+                {videoPreviewUrl ? (
+                  <video className="mt-3 w-full rounded-xl border border-slate-200" controls src={videoPreviewUrl}></video>
+                ) : null}
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2">Thumbnail URL (Optional)</label>
+                <label className="block text-sm font-semibold mb-2">Thumbnail Photo (Optional)</label>
                 <input
-                  className="w-full p-3 bg-slate-50 border-slate-200 rounded-xl focus:ring-primary/50 focus:border-primary"
-                  placeholder="https://example.com/image.jpg"
-                  type="url"
-                  value={form.thumbnailUrl}
-                  onChange={(event) =>
-                    setForm((previous) => ({ ...previous, thumbnailUrl: event.target.value }))
-                  }
+                  className="w-full p-3 bg-slate-50 border-slate-200 rounded-xl focus:ring-primary/50 focus:border-primary file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-primary file:text-white file:text-xs file:font-semibold hover:file:bg-primary/90"
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg,image/webp"
+                  onChange={(event) => setThumbnailFile(event.target.files?.[0] || null)}
                 />
+                <p className="mt-1 text-xs text-slate-500">
+                  {thumbnailFile ? `Selected: ${thumbnailFile.name}` : "Select an image from your computer."}
+                </p>
+                {thumbnailPreviewUrl ? (
+                  <img
+                    alt="Thumbnail preview"
+                    className="mt-3 h-36 w-full object-cover rounded-xl border border-slate-200"
+                    src={thumbnailPreviewUrl}
+                  />
+                ) : null}
               </div>
 
               <div>
@@ -250,4 +315,3 @@ export default function CreateVideoPost({ onNavigate, token, user, onLogout }) {
     </RestaurantShell>
   );
 }
-

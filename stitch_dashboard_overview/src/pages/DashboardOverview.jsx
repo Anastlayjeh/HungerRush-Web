@@ -37,6 +37,7 @@ export default function DashboardOverview({ onNavigate, token, user, onLogout })
   const [menuItems, setMenuItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [updatingRestaurantStatus, setUpdatingRestaurantStatus] = useState(false);
   const [isQuickOrderOpen, setIsQuickOrderOpen] = useState(false);
   const [quickOrderRows, setQuickOrderRows] = useState([createQuickOrderRow()]);
   const [quickOrderError, setQuickOrderError] = useState("");
@@ -87,10 +88,11 @@ export default function DashboardOverview({ onNavigate, token, user, onLogout })
       const createdAt = new Date(order?.created_at || "");
       return !Number.isNaN(createdAt.getTime()) && createdAt >= startOfToday;
     });
+    const completedToday = todayOrders.filter((order) => String(order?.status || "") === "delivered");
 
     return {
-      totalOrdersToday: todayOrders.length,
-      revenueToday: todayOrders.reduce((sum, order) => sum + Number(order?.total || 0), 0),
+      completedOrdersToday: completedToday.length,
+      revenueToday: completedToday.reduce((sum, order) => sum + Number(order?.total || 0), 0),
       inProgressCount: orders.filter((order) => ACTIVE_ORDER_STATUSES.has(String(order?.status || ""))).length,
     };
   }, [orders]);
@@ -111,6 +113,27 @@ export default function DashboardOverview({ onNavigate, token, user, onLogout })
     setIsQuickOrderOpen(false);
     setQuickOrderRows([createQuickOrderRow()]);
     setQuickOrderError("");
+  };
+
+  const isRestaurantActive = String(profile?.status || "active") === "active";
+
+  const handleToggleRestaurantStatus = async () => {
+    if (!profile || updatingRestaurantStatus) {
+      return;
+    }
+
+    const nextStatus = isRestaurantActive ? "inactive" : "active";
+    setUpdatingRestaurantStatus(true);
+    setError("");
+
+    try {
+      await api.updateRestaurantSettings(token, { status: nextStatus });
+      setProfile((previous) => (previous ? { ...previous, status: nextStatus } : previous));
+    } catch (requestError) {
+      setError(requestError?.message || "Failed to update restaurant status.");
+    } finally {
+      setUpdatingRestaurantStatus(false);
+    }
   };
 
   const handleQuickRowChange = (rowId, field, value) => {
@@ -169,6 +192,31 @@ export default function DashboardOverview({ onNavigate, token, user, onLogout })
         title={profile?.name || "Dashboard"}
         headerActions={
           <>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100">
+              <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Restaurant</span>
+              <button
+                className={
+                  isRestaurantActive
+                    ? "w-11 h-6 rounded-full bg-emerald-500 relative disabled:opacity-60"
+                    : "w-11 h-6 rounded-full bg-slate-300 relative disabled:opacity-60"
+                }
+                type="button"
+                onClick={handleToggleRestaurantStatus}
+                disabled={updatingRestaurantStatus}
+                title={isRestaurantActive ? "Set restaurant inactive" : "Set restaurant active"}
+              >
+                <span
+                  className={
+                    isRestaurantActive
+                      ? "absolute top-0.5 left-5 w-5 h-5 rounded-full bg-white transition-all"
+                      : "absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-all"
+                  }
+                ></span>
+              </button>
+              <span className="text-xs font-bold text-slate-700">
+                {updatingRestaurantStatus ? "Saving..." : isRestaurantActive ? "Active" : "Inactive"}
+              </span>
+            </div>
             <button
               className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-primary/90"
               type="button"
@@ -201,8 +249,8 @@ export default function DashboardOverview({ onNavigate, token, user, onLogout })
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white p-6 rounded-xl border border-primary/10 shadow-sm">
-            <p className="text-slate-500 text-sm font-medium">Total Orders Today</p>
-            <h3 className="text-3xl font-bold mt-1">{loading ? "..." : dashboardStats.totalOrdersToday}</h3>
+            <p className="text-slate-500 text-sm font-medium">Completed Orders Today</p>
+            <h3 className="text-3xl font-bold mt-1">{loading ? "..." : dashboardStats.completedOrdersToday}</h3>
           </div>
           <div className="bg-white p-6 rounded-xl border border-primary/10 shadow-sm">
             <p className="text-slate-500 text-sm font-medium">Revenue Today</p>

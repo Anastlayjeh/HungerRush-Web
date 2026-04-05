@@ -12,6 +12,7 @@ use App\Models\Review;
 use App\Models\User;
 use App\Models\Video;
 use App\Models\VideoEngagement;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
@@ -243,10 +244,11 @@ class RestaurantExtendedApiTest extends TestCase
         ]);
 
         $this->actingAs($owner, 'sanctum')
-            ->getJson('/api/v1/restaurant/analytics?range_days=30')
+            ->getJson('/api/v1/restaurant/analytics?period=monthly')
             ->assertOk()
             ->assertJsonStructure([
                 'data' => [
+                    'period',
                     'metrics' => [
                         'total_revenue',
                         'order_volume',
@@ -274,5 +276,104 @@ class RestaurantExtendedApiTest extends TestCase
             ->assertJsonPath('data.owner.name', 'Updated Owner')
             ->assertJsonPath('data.settings.auto_accept_orders', true)
             ->assertJsonPath('data.settings.default_prep_time', 18);
+    }
+
+    public function test_analytics_financial_metrics_only_count_delivered_orders(): void
+    {
+        $owner = User::factory()->create(['role' => 'restaurant_owner']);
+        $restaurant = Restaurant::factory()->create(['owner_user_id' => $owner->id]);
+        $customer = User::factory()->create(['role' => 'customer']);
+        $category = MenuCategory::factory()->create(['restaurant_id' => $restaurant->id]);
+        $menuItem = MenuItem::factory()->create(['category_id' => $category->id, 'price' => 25]);
+
+        $deliveredOrder = Order::factory()->create([
+            'restaurant_id' => $restaurant->id,
+            'customer_id' => $customer->id,
+            'subtotal' => 100,
+            'fees' => 10,
+            'total' => 110,
+            'status' => 'delivered',
+        ]);
+
+        $pendingOrder = Order::factory()->create([
+            'restaurant_id' => $restaurant->id,
+            'customer_id' => $customer->id,
+            'subtotal' => 50,
+            'fees' => 5,
+            'total' => 55,
+            'status' => 'pending',
+        ]);
+
+        OrderItem::create([
+            'order_id' => $deliveredOrder->id,
+            'menu_item_id' => $menuItem->id,
+            'quantity' => 2,
+            'unit_price' => 25,
+            'notes' => null,
+        ]);
+
+        OrderItem::create([
+            'order_id' => $pendingOrder->id,
+            'menu_item_id' => $menuItem->id,
+            'quantity' => 4,
+            'unit_price' => 25,
+            'notes' => null,
+        ]);
+
+        $this->actingAs($owner, 'sanctum')
+            ->getJson('/api/v1/restaurant/analytics?period=monthly')
+            ->assertOk()
+            ->assertJsonPath('data.metrics.total_revenue.value', 110)
+            ->assertJsonPath('data.metrics.order_volume.value', 1)
+            ->assertJsonPath('data.metrics.avg_order_value.value', 110)
+            ->assertJsonPath('data.top_dishes.0.sold', 2);
+    }
+
+    public function test_analytics_returns_full_month_and_year_revenue_trend_points(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-05 10:00:00'));
+
+        try {
+            $owner = User::factory()->create(['role' => 'restaurant_owner']);
+            $restaurant = Restaurant::factory()->create(['owner_user_id' => $owner->id]);
+            $customer = User::factory()->create(['role' => 'customer']);
+
+            Order::factory()->create([
+                'restaurant_id' => $restaurant->id,
+                'customer_id' => $customer->id,
+                'total' => 32,
+                'status' => 'delivered',
+                'created_at' => Carbon::parse('2026-04-02 12:00:00'),
+            ]);
+
+            Order::factory()->create([
+                'restaurant_id' => $restaurant->id,
+                'customer_id' => $customer->id,
+                'total' => 48,
+                'status' => 'delivered',
+                'created_at' => Carbon::parse('2026-02-11 12:00:00'),
+            ]);
+
+            $monthly = $this->actingAs($owner, 'sanctum')
+                ->getJson('/api/v1/restaurant/analytics?period=monthly')
+                ->assertOk();
+
+            $yearly = $this->actingAs($owner, 'sanctum')
+                ->getJson('/api/v1/restaurant/analytics?period=yearly')
+                ->assertOk();
+
+            $monthlyTrend = $monthly->json('data.revenue_trend');
+            $yearlyTrend = $yearly->json('data.revenue_trend');
+
+            $this->assertCount(30, $monthlyTrend);
+            $this->assertSame('1', $monthlyTrend[0]['label']);
+            $this->assertSame('30', $monthlyTrend[29]['label']);
+
+            $this->assertCount(12, $yearlyTrend);
+            $this->assertSame('Jan', $yearlyTrend[0]['label']);
+            $this->assertSame('Dec', $yearlyTrend[11]['label']);
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 }

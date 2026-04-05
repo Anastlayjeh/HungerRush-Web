@@ -13,10 +13,19 @@ use App\Http\Controllers\Api\V1\Restaurant\OrderController;
 use App\Http\Controllers\Api\V1\Restaurant\ProfileController;
 use App\Http\Controllers\Api\V1\Restaurant\ReviewController;
 use App\Http\Controllers\Api\V1\Restaurant\SettingsController;
+use App\Http\Controllers\Api\V1\Restaurant\VideoAssetUploadController;
 use App\Http\Controllers\Api\V1\Restaurant\VideoController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
+    Route::get('/restaurant/menu/images/{filename}', [MenuImageUploadController::class, 'show'])
+        ->where('filename', '[A-Za-z0-9\-\._]+');
+    Route::get('/restaurant/videos/assets/{assetType}/{filename}', [VideoAssetUploadController::class, 'show'])
+        ->where([
+            'assetType' => 'video|thumbnail',
+            'filename' => '[A-Za-z0-9\-\._]+',
+        ]);
+
     Route::prefix('auth')->group(function () {
         Route::post('/register', [AuthController::class, 'register']);
         Route::post('/login', [AuthController::class, 'login']);
@@ -56,6 +65,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/videos', [VideoController::class, 'store']);
         Route::patch('/videos/{video}', [VideoController::class, 'update']);
         Route::delete('/videos/{video}', [VideoController::class, 'destroy']);
+        Route::post('/videos/assets/upload', [VideoAssetUploadController::class, 'store']);
 
         Route::get('/reviews/summary', [ReviewController::class, 'summary']);
         Route::get('/reviews', [ReviewController::class, 'index']);

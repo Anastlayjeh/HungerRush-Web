@@ -3,7 +3,10 @@ import RestaurantShell from "../components/RestaurantShell.jsx";
 import { api } from "../lib/api.js";
 import { downloadCsv } from "../utils/download.js";
 
-const RANGES = [7, 30, 90];
+const PERIODS = [
+  { value: "monthly", label: "1 Month" },
+  { value: "yearly", label: "Annual" },
+];
 
 const toCurrency = (value) =>
   new Intl.NumberFormat("en-US", {
@@ -23,7 +26,7 @@ function metricChangeClass(change) {
 }
 
 export default function AnalyticsInsights({ onNavigate, token, user, onLogout }) {
-  const [range, setRange] = useState(30);
+  const [period, setPeriod] = useState("monthly");
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -36,7 +39,7 @@ export default function AnalyticsInsights({ onNavigate, token, user, onLogout })
       setLoading(true);
       setError("");
       try {
-        const payload = await api.getAnalytics(token, range);
+        const payload = await api.getAnalytics(token, { period });
         if (!isCancelled) setAnalytics(payload || null);
       } catch (requestError) {
         if (!isCancelled) setError(requestError?.message || "Failed to load analytics.");
@@ -49,7 +52,7 @@ export default function AnalyticsInsights({ onNavigate, token, user, onLogout })
     return () => {
       isCancelled = true;
     };
-  }, [token, range]);
+  }, [token, period]);
 
   const metrics = analytics?.metrics || {};
   const revenueTrend = analytics?.revenue_trend || [];
@@ -95,9 +98,9 @@ export default function AnalyticsInsights({ onNavigate, token, user, onLogout })
 
   const exportRevenueCsv = () => {
     downloadCsv(
-      `analytics-revenue-${range}d.csv`,
-      ["Day", "Revenue", "Orders Count"],
-      revenueTrend.map((row) => [row.day, row.revenue, row.orders_count])
+      `analytics-revenue-${period}.csv`,
+      ["Period", "Revenue", "Orders Count"],
+      revenueTrend.map((row) => [row.full_label || row.label || row.day || "", row.revenue, row.orders_count])
     );
   };
 
@@ -117,18 +120,18 @@ export default function AnalyticsInsights({ onNavigate, token, user, onLogout })
       headerActions={
         <>
           <div className="flex bg-slate-100 p-1 rounded-lg">
-            {RANGES.map((days) => (
+            {PERIODS.map((periodOption) => (
               <button
-                key={days}
+                key={periodOption.value}
                 className={
-                  range === days
+                  period === periodOption.value
                     ? "px-3 py-1.5 text-sm font-semibold rounded-md bg-white shadow-sm"
                     : "px-3 py-1.5 text-sm font-semibold rounded-md hover:bg-white/70"
                 }
                 type="button"
-                onClick={() => setRange(days)}
+                onClick={() => setPeriod(periodOption.value)}
               >
-                {days} Days
+                {periodOption.label}
               </button>
             ))}
           </div>
@@ -158,7 +161,10 @@ export default function AnalyticsInsights({ onNavigate, token, user, onLogout })
 
       <section className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
         <div className="bg-white p-6 rounded-xl border border-primary/10">
-          <h3 className="font-bold text-lg mb-4">Revenue Trend</h3>
+          <h3 className="font-bold text-lg mb-1">Revenue Trend</h3>
+          <p className="text-xs text-slate-500 mb-3">
+            {period === "yearly" ? "Resets every year." : "Resets every month."}
+          </p>
           <div className="h-64 flex items-end gap-1">
             {(revenueTrend.length ? revenueTrend : [{}, {}, {}, {}, {}, {}, {}]).map((point, index) => (
               <div key={`${point.day || "d"}-${index}`} className="flex-1 h-full flex flex-col justify-end">
@@ -172,7 +178,7 @@ export default function AnalyticsInsights({ onNavigate, token, user, onLogout })
                   title={revenueTrend.length ? `${point.label}: ${toCurrency(point.revenue)}` : "No data"}
                 ></div>
                 <span className="text-[10px] text-slate-500 mt-1 truncate">
-                  {revenueTrend.length ? point.label.split(" ")[1] : ""}
+                  {revenueTrend.length ? point.label : ""}
                 </span>
               </div>
             ))}

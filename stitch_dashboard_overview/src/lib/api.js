@@ -262,6 +262,15 @@ export const api = {
     );
   },
 
+  async getRestaurantOrder(token, orderId) {
+    return unwrapData(
+      await request(`/v1/restaurant/orders/${orderId}`, {
+        method: "GET",
+        token,
+      })
+    );
+  },
+
   async updateOrderStatus(token, orderId, status) {
     return unwrapData(
       await request(`/v1/restaurant/orders/${orderId}/status`, {
@@ -286,6 +295,20 @@ export const api = {
     );
 
     return unwrapList(payload);
+  },
+
+  async uploadVideoAsset(token, { assetType, file }) {
+    const formData = new FormData();
+    formData.append("asset_type", assetType);
+    formData.append("file", file);
+
+    return unwrapData(
+      await request("/v1/restaurant/videos/assets/upload", {
+        method: "POST",
+        token,
+        body: formData,
+      })
+    );
   },
 
   async createVideo(token, body) {
@@ -387,9 +410,22 @@ export const api = {
     );
   },
 
-  async getAnalytics(token, rangeDays = 30) {
+  async getAnalytics(token, options = {}) {
+    const period =
+      typeof options === "string"
+        ? options
+        : typeof options?.period === "string"
+          ? options.period
+          : undefined;
+    const rangeDays =
+      typeof options === "number"
+        ? options
+        : typeof options?.rangeDays === "number"
+          ? options.rangeDays
+          : undefined;
+
     return unwrapData(
-      await request(withQuery("/v1/restaurant/analytics", { range_days: rangeDays }), {
+      await request(withQuery("/v1/restaurant/analytics", { period, range_days: rangeDays }), {
         method: "GET",
         token,
       })
