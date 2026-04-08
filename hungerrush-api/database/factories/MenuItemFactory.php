@@ -22,6 +22,11 @@ class MenuItemFactory extends Factory
             'category_id' => MenuCategory::factory(),
             'name' => fake()->words(2, true),
             'description' => fake()->sentence(),
+            'ingredients' => fake()->randomElement([
+                'Fresh vegetables, herbs, and house seasoning',
+                'Chicken, garlic, lemon, olive oil, black pepper',
+                'Beef, onion, tomato, lettuce, signature sauce',
+            ]),
             'image_urls' => [fake()->imageUrl(900, 600, 'food', true)],
             'price' => fake()->randomFloat(2, 5, 50),
             'is_available' => true,

@@ -14,8 +14,10 @@ class UpdateMenuItemRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'category_id' => ['sometimes', 'exists:menu_categories,id'],
             'name' => ['sometimes', 'string', 'max:180'],
             'description' => ['nullable', 'string'],
+            'ingredients' => ['nullable', 'string'],
             'image_urls' => ['nullable', 'array', 'max:8'],
             'image_urls.*' => ['url', 'max:2048'],
             'price' => ['sometimes', 'numeric', 'min:0'],

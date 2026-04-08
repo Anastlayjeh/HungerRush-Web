@@ -43,12 +43,14 @@ class RestaurantExtendedApiTest extends TestCase
         $owner = User::factory()->create(['role' => 'restaurant_owner']);
         $restaurant = Restaurant::factory()->create(['owner_user_id' => $owner->id]);
         $category = MenuCategory::factory()->create(['restaurant_id' => $restaurant->id]);
+        $secondCategory = MenuCategory::factory()->create(['restaurant_id' => $restaurant->id]);
 
         $response = $this->actingAs($owner, 'sanctum')
             ->postJson('/api/v1/restaurant/menu/items', [
                 'category_id' => $category->id,
                 'name' => 'Photo Burger',
                 'description' => 'Test burger with image gallery.',
+                'ingredients' => 'Beef patty, cheddar cheese, lettuce, tomato, burger sauce',
                 'image_urls' => [
                     'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=900&q=80',
                     'https://images.unsplash.com/photo-1550317138-10000687a72b?auto=format&fit=crop&w=900&q=80',
@@ -60,8 +62,42 @@ class RestaurantExtendedApiTest extends TestCase
 
         $response->assertCreated()
             ->assertJsonPath('data.name', 'Photo Burger')
+            ->assertJsonPath('data.ingredients', 'Beef patty, cheddar cheese, lettuce, tomato, burger sauce')
             ->assertJsonPath('data.image_urls.0', 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=900&q=80')
             ->assertJsonPath('data.image_urls.1', 'https://images.unsplash.com/photo-1550317138-10000687a72b?auto=format&fit=crop&w=900&q=80');
+
+        $menuItemId = $response->json('data.id');
+        $this->assertDatabaseHas('menu_items', [
+            'id' => $menuItemId,
+            'ingredients' => 'Beef patty, cheddar cheese, lettuce, tomato, burger sauce',
+        ]);
+
+        $this->actingAs($owner, 'sanctum')
+            ->patchJson("/api/v1/restaurant/menu/items/{$menuItemId}", [
+                'category_id' => $secondCategory->id,
+                'ingredients' => 'Beef patty, pickles, onions, mustard',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.category_id', $secondCategory->id)
+            ->assertJsonPath('data.ingredients', 'Beef patty, pickles, onions, mustard');
+
+        $this->assertDatabaseHas('menu_items', [
+            'id' => $menuItemId,
+            'category_id' => $secondCategory->id,
+        ]);
+
+        $this->assertDatabaseMissing('menu_categories', [
+            'id' => $category->id,
+        ]);
+
+        $this->actingAs($owner, 'sanctum')
+            ->deleteJson("/api/v1/restaurant/menu/items/{$menuItemId}")
+            ->assertOk()
+            ->assertJsonPath('data.deleted', true);
+
+        $this->assertDatabaseMissing('menu_categories', [
+            'id' => $secondCategory->id,
+        ]);
     }
 
     public function test_restaurant_owner_can_manage_videos(): void
@@ -129,6 +165,40 @@ class RestaurantExtendedApiTest extends TestCase
             'restaurant_id' => $restaurant->id,
             'is_quick_order' => 1,
         ]);
+    }
+
+    public function test_new_quick_order_appears_first_in_restaurant_orders_list(): void
+    {
+        $owner = User::factory()->create(['role' => 'restaurant_owner']);
+        $restaurant = Restaurant::factory()->create(['owner_user_id' => $owner->id]);
+        $customer = User::factory()->create(['role' => 'customer']);
+        $category = MenuCategory::factory()->create(['restaurant_id' => $restaurant->id]);
+        $menuItem = MenuItem::factory()->create(['category_id' => $category->id, 'price' => 11.5]);
+
+        Order::factory()->create([
+            'restaurant_id' => $restaurant->id,
+            'customer_id' => $customer->id,
+            'status' => 'delivered',
+            'payment_status' => 'paid',
+            'created_at' => now()->addDays(45),
+            'updated_at' => now()->addDays(45),
+        ]);
+
+        $quickOrderResponse = $this->actingAs($owner, 'sanctum')
+            ->postJson('/api/v1/restaurant/orders/quick', [
+                'items' => [
+                    ['menu_item_id' => $menuItem->id, 'quantity' => 2],
+                ],
+            ]);
+
+        $quickOrderResponse->assertCreated();
+        $quickOrderId = $quickOrderResponse->json('data.id');
+
+        $this->actingAs($owner, 'sanctum')
+            ->getJson('/api/v1/restaurant/orders')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $quickOrderId)
+            ->assertJsonPath('data.0.is_quick_order', true);
     }
 
     public function test_restaurant_owner_can_view_review_summary_and_reply(): void
@@ -276,6 +346,80 @@ class RestaurantExtendedApiTest extends TestCase
             ->assertJsonPath('data.owner.name', 'Updated Owner')
             ->assertJsonPath('data.settings.auto_accept_orders', true)
             ->assertJsonPath('data.settings.default_prep_time', 18);
+    }
+
+    public function test_restaurant_owner_can_manage_locations_numbers_and_profile_photo_in_settings(): void
+    {
+        $owner = User::factory()->create(['role' => 'restaurant_owner']);
+        $restaurant = Restaurant::factory()->create(['owner_user_id' => $owner->id]);
+
+        $uploadResponse = $this->actingAs($owner, 'sanctum')
+            ->post('/api/v1/restaurant/profile-photo/upload', [
+                'photo' => UploadedFile::fake()->create('profile.jpg', 120, 'image/jpeg'),
+            ]);
+
+        $uploadResponse->assertCreated()->assertJsonPath('message', 'Profile photo uploaded successfully.');
+        $photoUrl = $uploadResponse->json('data.url');
+
+        $createSettingsResponse = $this->actingAs($owner, 'sanctum')
+            ->patchJson('/api/v1/restaurant/settings', [
+                'owner_phone' => '70111222',
+                'settings' => [
+                    'contact_numbers' => ['76112233', '03123456'],
+                    'profile_photo_url' => $photoUrl,
+                ],
+                'locations' => [
+                    [
+                        'name' => 'Main Branch',
+                        'address' => 'Hamra Street, Beirut',
+                        'phone' => '01111222',
+                        'latitude' => 33.8938,
+                        'longitude' => 35.5018,
+                    ],
+                ],
+            ]);
+
+        $createSettingsResponse->assertOk()
+            ->assertJsonPath('data.owner.phone', '70111222')
+            ->assertJsonPath('data.settings.contact_numbers.0', '76112233')
+            ->assertJsonPath('data.settings.profile_photo_url', $photoUrl)
+            ->assertJsonPath('data.locations.0.name', 'Main Branch')
+            ->assertJsonPath('data.locations.0.address', 'Hamra Street, Beirut')
+            ->assertJsonPath('data.locations.0.phone', '01111222');
+
+        $locationId = $createSettingsResponse->json('data.locations.0.id');
+        $this->assertDatabaseHas('restaurant_branches', [
+            'id' => $locationId,
+            'restaurant_id' => $restaurant->id,
+            'name' => 'Main Branch',
+        ]);
+
+        $this->actingAs($owner, 'sanctum')
+            ->patchJson('/api/v1/restaurant/settings', [
+                'locations' => [
+                    [
+                        'id' => $locationId,
+                        'name' => 'Main Branch Updated',
+                        'address' => 'Hamra Street, Beirut',
+                        'phone' => '01999000',
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.locations.0.id', $locationId)
+            ->assertJsonPath('data.locations.0.name', 'Main Branch Updated')
+            ->assertJsonPath('data.locations.0.phone', '01999000');
+
+        $this->actingAs($owner, 'sanctum')
+            ->patchJson('/api/v1/restaurant/settings', [
+                'locations' => [],
+            ])
+            ->assertOk()
+            ->assertJsonCount(0, 'data.locations');
+
+        $this->assertDatabaseMissing('restaurant_branches', [
+            'id' => $locationId,
+        ]);
     }
 
     public function test_analytics_financial_metrics_only_count_delivered_orders(): void

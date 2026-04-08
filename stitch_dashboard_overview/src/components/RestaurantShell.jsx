@@ -18,6 +18,8 @@ export default function RestaurantShell({
   headerActions = null,
   children,
 }) {
+  const profilePhotoUrl = user?.profilePhotoUrl || "";
+
   return (
     <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen">
       <aside className="w-64 border-r border-primary/10 bg-white dark:bg-background-dark/50 fixed h-full flex flex-col">
@@ -54,9 +56,17 @@ export default function RestaurantShell({
 
         <div className="p-4 border-t border-primary/10">
           <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-primary/5">
-            <div className="size-10 rounded-full bg-slate-300 flex items-center justify-center text-slate-600">
-              <span className="material-symbols-outlined">person</span>
-            </div>
+            {profilePhotoUrl ? (
+              <img
+                className="size-10 rounded-full object-cover border border-slate-200"
+                src={profilePhotoUrl}
+                alt="Profile"
+              />
+            ) : (
+              <div className="size-10 rounded-full bg-slate-300 flex items-center justify-center text-slate-600">
+                <span className="material-symbols-outlined">person</span>
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold truncate">{user?.name || "Restaurant User"}</p>
               <p className="text-xs text-slate-500 truncate">
@@ -85,4 +95,3 @@ export default function RestaurantShell({
     </div>
   );
 }
-

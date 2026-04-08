@@ -11,7 +11,7 @@ class MenuItem extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['category_id', 'name', 'description', 'image_urls', 'price', 'is_available', 'prep_time'];
+    protected $fillable = ['category_id', 'name', 'description', 'ingredients', 'image_urls', 'price', 'is_available', 'prep_time'];
 
     protected function casts(): array
     {

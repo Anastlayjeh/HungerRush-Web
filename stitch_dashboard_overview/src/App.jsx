@@ -102,6 +102,21 @@ export default function App() {
 
   const Page = useMemo(() => pageMap[activePage] ?? DashboardOverview, [activePage]);
 
+  const withProfilePhoto = async (authToken, baseUser) => {
+    try {
+      const settings = await api.getRestaurantSettings(authToken);
+      return {
+        ...(baseUser || {}),
+        profilePhotoUrl: settings?.settings?.profile_photo_url || "",
+      };
+    } catch {
+      return {
+        ...(baseUser || {}),
+        profilePhotoUrl: baseUser?.profilePhotoUrl || "",
+      };
+    }
+  };
+
   useEffect(() => {
     if (!token) {
       setIsAuthLoading(false);
@@ -118,7 +133,11 @@ export default function App() {
         if (isCancelled) {
           return;
         }
-        setUser(me);
+        const enrichedUser = await withProfilePhoto(token, me);
+        if (isCancelled) {
+          return;
+        }
+        setUser(enrichedUser);
       } catch (error) {
         if (isCancelled) {
           return;
@@ -156,7 +175,8 @@ export default function App() {
 
       localStorage.setItem(TOKEN_STORAGE_KEY, nextToken);
       setToken(nextToken);
-      setUser(nextUser || null);
+      const enrichedUser = await withProfilePhoto(nextToken, nextUser || null);
+      setUser(enrichedUser);
     } catch (error) {
       setAuthError(error?.message || "Unable to sign in.");
     } finally {
@@ -183,6 +203,10 @@ export default function App() {
     }
   };
 
+  const handleUserProfilePhotoUpdate = (photoUrl) => {
+    setUser((previous) => (previous ? { ...previous, profilePhotoUrl: photoUrl || "" } : previous));
+  };
+
   if (isAuthLoading && !user) {
     return (
       <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
@@ -199,7 +223,13 @@ export default function App() {
 
   return (
     <div className="min-h-screen">
-      <Page onNavigate={setActivePage} token={token} user={user} onLogout={handleLogout} />
+      <Page
+        onNavigate={setActivePage}
+        token={token}
+        user={user}
+        onLogout={handleLogout}
+        onUserProfilePhotoUpdate={handleUserProfilePhotoUpdate}
+      />
     </div>
   );
 }

@@ -30,7 +30,7 @@ class OrderController extends Controller
                 'customer:id,name,email,phone',
                 'branch:id,name,address',
             ])
-            ->latest()
+            ->latest('id')
             ->paginate(15);
 
         return $this->successResponse($orders->items(), [

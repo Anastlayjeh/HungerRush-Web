@@ -161,6 +161,19 @@ export const api = {
     );
   },
 
+  async uploadRestaurantProfilePhoto(token, file) {
+    const formData = new FormData();
+    formData.append("photo", file);
+
+    return unwrapData(
+      await request("/v1/restaurant/profile-photo/upload", {
+        method: "POST",
+        token,
+        body: formData,
+      })
+    );
+  },
+
   async getMenuCategories(token) {
     return unwrapData(
       await request("/v1/restaurant/menu/categories", {

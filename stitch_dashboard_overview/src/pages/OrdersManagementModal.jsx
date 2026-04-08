@@ -14,6 +14,8 @@ const CANCELLABLE_ORDER_STATUSES = new Set([
   "accepted",
   "preparing",
   "ready_for_pickup",
+  "picked_up",
+  "on_the_way",
 ]);
 
 function toMoney(value) {

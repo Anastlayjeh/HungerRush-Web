@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class RestaurantBranch extends Model
 {
-    protected $fillable = ['restaurant_id', 'name', 'address', 'latitude', 'longitude', 'open_hours'];
+    protected $fillable = ['restaurant_id', 'name', 'address', 'phone', 'latitude', 'longitude', 'open_hours'];
 
     protected function casts(): array
     {

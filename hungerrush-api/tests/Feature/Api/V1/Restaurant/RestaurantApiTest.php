@@ -61,4 +61,34 @@ class RestaurantApiTest extends TestCase
         $response->assertUnprocessable()
             ->assertJsonPath('code', 'invalid_order_transition');
     }
+
+    public function test_restaurant_owner_can_cancel_order_until_before_delivered(): void
+    {
+        $owner = User::factory()->create(['role' => 'restaurant_owner']);
+        $restaurant = Restaurant::factory()->create(['owner_user_id' => $owner->id]);
+
+        $inTransitOrder = Order::factory()->create([
+            'restaurant_id' => $restaurant->id,
+            'status' => 'on_the_way',
+        ]);
+
+        $this->actingAs($owner, 'sanctum')
+            ->patchJson("/api/v1/restaurant/orders/{$inTransitOrder->id}/status", [
+                'status' => 'cancelled',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'cancelled');
+
+        $deliveredOrder = Order::factory()->create([
+            'restaurant_id' => $restaurant->id,
+            'status' => 'delivered',
+        ]);
+
+        $this->actingAs($owner, 'sanctum')
+            ->patchJson("/api/v1/restaurant/orders/{$deliveredOrder->id}/status", [
+                'status' => 'cancelled',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('code', 'invalid_order_transition');
+    }
 }

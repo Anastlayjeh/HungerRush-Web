@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\Restaurant\MenuImageUploadController;
 use App\Http\Controllers\Api\V1\Restaurant\MenuItemController;
 use App\Http\Controllers\Api\V1\Restaurant\OrderController;
 use App\Http\Controllers\Api\V1\Restaurant\ProfileController;
+use App\Http\Controllers\Api\V1\Restaurant\RestaurantProfilePhotoUploadController;
 use App\Http\Controllers\Api\V1\Restaurant\ReviewController;
 use App\Http\Controllers\Api\V1\Restaurant\SettingsController;
 use App\Http\Controllers\Api\V1\Restaurant\VideoAssetUploadController;
@@ -25,6 +26,8 @@ Route::prefix('v1')->group(function () {
             'assetType' => 'video|thumbnail',
             'filename' => '[A-Za-z0-9\-\._]+',
         ]);
+    Route::get('/restaurant/profile-photos/{filename}', [RestaurantProfilePhotoUploadController::class, 'show'])
+        ->where('filename', '[A-Za-z0-9\-\._]+');
 
     Route::prefix('auth')->group(function () {
         Route::post('/register', [AuthController::class, 'register']);
@@ -43,6 +46,7 @@ Route::prefix('v1')->group(function () {
         Route::patch('/profile', [ProfileController::class, 'update']);
         Route::get('/settings', [SettingsController::class, 'show']);
         Route::patch('/settings', [SettingsController::class, 'update']);
+        Route::post('/profile-photo/upload', [RestaurantProfilePhotoUploadController::class, 'store']);
 
         Route::get('/menu/categories', [MenuCategoryController::class, 'index']);
         Route::post('/menu/categories', [MenuCategoryController::class, 'store']);
