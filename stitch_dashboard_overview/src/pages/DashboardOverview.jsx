@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import RestaurantShell from "../components/RestaurantShell.jsx";
 import { api } from "../lib/api.js";
 import {
@@ -22,12 +22,118 @@ function formatOrderTime(value) {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+function normalizeIngredientName(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function titleCaseIngredient(value) {
+  return String(value || "")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function parseMenuItemIngredients(value) {
+  const rawList = Array.isArray(value)
+    ? value
+    : String(value || "")
+        .split(/,|;|\n/)
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+
+  const seen = new Set();
+  const parsed = [];
+  for (const ingredient of rawList) {
+    const normalized = normalizeIngredientName(ingredient);
+    if (!normalized) continue;
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    parsed.push(titleCaseIngredient(normalized));
+  }
+
+  return parsed;
+}
+
+function isSameIngredient(left, right) {
+  return normalizeIngredientName(left).toLowerCase() === normalizeIngredientName(right).toLowerCase();
+}
+
+function isIngredientSelected(list, ingredient) {
+  return (list || []).some((entry) => isSameIngredient(entry, ingredient));
+}
+
+function toggleIngredientSelection(list, ingredient) {
+  const normalized = titleCaseIngredient(normalizeIngredientName(ingredient));
+  if (!normalized) return Array.isArray(list) ? list : [];
+
+  if (isIngredientSelected(list, normalized)) {
+    return (list || []).filter((entry) => !isSameIngredient(entry, normalized));
+  }
+
+  return [...(list || []), normalized];
+}
+
+function removeIngredientSelection(list, ingredient) {
+  return (list || []).filter((entry) => !isSameIngredient(entry, ingredient));
+}
+
+function mergeIngredientOptions(...groups) {
+  const merged = [];
+  for (const group of groups) {
+    for (const item of group || []) {
+      const normalized = titleCaseIngredient(normalizeIngredientName(item));
+      if (!normalized) continue;
+      if (isIngredientSelected(merged, normalized)) continue;
+      merged.push(normalized);
+    }
+  }
+  return merged;
+}
+
+function buildQuickOrderItemNotes(row) {
+  const lines = [];
+  const description = String(row?.customDescription || "").trim();
+  if (description) {
+    lines.push(description);
+  }
+
+  (row?.addIngredients || []).forEach((ingredient) => {
+    lines.push(`add ${String(ingredient).toLowerCase()}`);
+  });
+
+  (row?.removeIngredients || []).forEach((ingredient) => {
+    lines.push(`remove ${String(ingredient).toLowerCase()}`);
+  });
+
+  const notes = lines.join(". ").trim();
+  return notes || undefined;
+}
+
+function getQuickRowCustomizationSummary(row) {
+  const description = String(row?.customDescription || "").trim();
+  const add = Array.isArray(row?.addIngredients) ? row.addIngredients : [];
+  const remove = Array.isArray(row?.removeIngredients) ? row.removeIngredients : [];
+
+  const parts = [];
+  if (description) parts.push(description);
+  if (add.length) parts.push(`Add: ${add.join(", ")}`);
+  if (remove.length) parts.push(`Remove: ${remove.join(", ")}`);
+
+  return parts.join(" | ") || "No customization";
+}
+
 function createQuickOrderRow() {
   return {
     id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     menuItemId: "",
     quantity: 1,
-    notes: "",
+    customDescription: "",
+    addIngredients: [],
+    removeIngredients: [],
   };
 }
 
@@ -42,6 +148,12 @@ export default function DashboardOverview({ onNavigate, token, user, onLogout })
   const [quickOrderRows, setQuickOrderRows] = useState([createQuickOrderRow()]);
   const [quickOrderError, setQuickOrderError] = useState("");
   const [creatingQuickOrder, setCreatingQuickOrder] = useState(false);
+  const [editingQuickRowId, setEditingQuickRowId] = useState(null);
+  const [quickRowEditorDraft, setQuickRowEditorDraft] = useState({
+    customDescription: "",
+    addIngredients: [],
+    removeIngredients: [],
+  });
 
   useEffect(() => {
     if (!token) return undefined;
@@ -102,10 +214,44 @@ export default function DashboardOverview({ onNavigate, token, user, onLogout })
     () => menuItems.filter((item) => Boolean(item?.is_available)),
     [menuItems]
   );
+  const quickRowBeingEdited = useMemo(
+    () => quickOrderRows.find((row) => row.id === editingQuickRowId) || null,
+    [quickOrderRows, editingQuickRowId]
+  );
+  const quickRowBeingEditedIndex = useMemo(
+    () => quickOrderRows.findIndex((row) => row.id === editingQuickRowId),
+    [quickOrderRows, editingQuickRowId]
+  );
+  const quickRowEditorMenuItem = useMemo(() => {
+    if (!quickRowBeingEdited?.menuItemId) return null;
+    return (
+      availableMenuItems.find(
+        (item) => String(item.id) === String(quickRowBeingEdited.menuItemId)
+      ) || null
+    );
+  }, [availableMenuItems, quickRowBeingEdited]);
+  const removableIngredientOptions = useMemo(
+    () => parseMenuItemIngredients(quickRowEditorMenuItem?.ingredients),
+    [quickRowEditorMenuItem]
+  );
+  const allMenuIngredientOptions = useMemo(() => {
+    const collected = menuItems.flatMap((item) => parseMenuItemIngredients(item?.ingredients));
+    return mergeIngredientOptions(collected);
+  }, [menuItems]);
+  const addableIngredientOptions = useMemo(
+    () => mergeIngredientOptions(removableIngredientOptions, allMenuIngredientOptions),
+    [removableIngredientOptions, allMenuIngredientOptions]
+  );
 
   const openQuickOrder = () => {
     setQuickOrderRows([createQuickOrderRow()]);
     setQuickOrderError("");
+    setEditingQuickRowId(null);
+    setQuickRowEditorDraft({
+      customDescription: "",
+      addIngredients: [],
+      removeIngredients: [],
+    });
     setIsQuickOrderOpen(true);
   };
 
@@ -113,6 +259,12 @@ export default function DashboardOverview({ onNavigate, token, user, onLogout })
     setIsQuickOrderOpen(false);
     setQuickOrderRows([createQuickOrderRow()]);
     setQuickOrderError("");
+    setEditingQuickRowId(null);
+    setQuickRowEditorDraft({
+      customDescription: "",
+      addIngredients: [],
+      removeIngredients: [],
+    });
   };
 
   const isRestaurantActive = String(profile?.status || "active") === "active";
@@ -138,7 +290,17 @@ export default function DashboardOverview({ onNavigate, token, user, onLogout })
 
   const handleQuickRowChange = (rowId, field, value) => {
     setQuickOrderRows((previous) =>
-      previous.map((row) => (row.id === rowId ? { ...row, [field]: value } : row))
+      previous.map((row) => {
+        if (row.id !== rowId) return row;
+
+        const next = { ...row, [field]: value };
+        if (field === "menuItemId" && String(row.menuItemId) !== String(value)) {
+          next.addIngredients = [];
+          next.removeIngredients = [];
+        }
+
+        return next;
+      })
     );
   };
 
@@ -147,10 +309,72 @@ export default function DashboardOverview({ onNavigate, token, user, onLogout })
   };
 
   const handleRemoveQuickRow = (rowId) => {
+    if (editingQuickRowId === rowId) {
+      setEditingQuickRowId(null);
+      setQuickRowEditorDraft({
+        customDescription: "",
+        addIngredients: [],
+        removeIngredients: [],
+      });
+    }
+
     setQuickOrderRows((previous) => {
       const next = previous.filter((row) => row.id !== rowId);
       return next.length ? next : [createQuickOrderRow()];
     });
+  };
+
+  const handleOpenQuickRowEditor = (rowId) => {
+    const targetRow = quickOrderRows.find((row) => row.id === rowId);
+    if (!targetRow) return;
+
+    setEditingQuickRowId(rowId);
+    setQuickRowEditorDraft({
+      customDescription: String(targetRow.customDescription || ""),
+      addIngredients: Array.isArray(targetRow.addIngredients) ? targetRow.addIngredients : [],
+      removeIngredients: Array.isArray(targetRow.removeIngredients) ? targetRow.removeIngredients : [],
+    });
+  };
+
+  const handleCloseQuickRowEditor = () => {
+    setEditingQuickRowId(null);
+    setQuickRowEditorDraft({
+      customDescription: "",
+      addIngredients: [],
+      removeIngredients: [],
+    });
+  };
+
+  const handleToggleDraftIngredient = (field, ingredient) => {
+    setQuickRowEditorDraft((previous) => {
+      const oppositeField = field === "addIngredients" ? "removeIngredients" : "addIngredients";
+      const nextFieldValue = toggleIngredientSelection(previous[field], ingredient);
+      const nextOppositeFieldValue = removeIngredientSelection(previous[oppositeField], ingredient);
+
+      return {
+        ...previous,
+        [field]: nextFieldValue,
+        [oppositeField]: nextOppositeFieldValue,
+      };
+    });
+  };
+
+  const handleSaveQuickRowEditor = () => {
+    if (!editingQuickRowId) return;
+
+    setQuickOrderRows((previous) =>
+      previous.map((row) =>
+        row.id === editingQuickRowId
+          ? {
+              ...row,
+              customDescription: quickRowEditorDraft.customDescription.trim(),
+              addIngredients: quickRowEditorDraft.addIngredients,
+              removeIngredients: quickRowEditorDraft.removeIngredients,
+            }
+          : row
+      )
+    );
+    handleCloseQuickRowEditor();
   };
 
   const handleCreateQuickOrder = async (event) => {
@@ -161,7 +385,7 @@ export default function DashboardOverview({ onNavigate, token, user, onLogout })
       .map((row) => ({
         menu_item_id: Number(row.menuItemId),
         quantity: Number(row.quantity),
-        notes: row.notes.trim() || undefined,
+        notes: buildQuickOrderItemNotes(row),
       }))
       .filter((row) => Number.isFinite(row.menu_item_id) && row.menu_item_id > 0 && row.quantity > 0);
 
@@ -353,7 +577,7 @@ export default function DashboardOverview({ onNavigate, token, user, onLogout })
               ) : null}
 
               {quickOrderRows.map((row, index) => (
-                <div key={row.id} className="grid grid-cols-1 md:grid-cols-[2fr_100px_1fr_40px] gap-3 items-start">
+                <div key={row.id} className="grid grid-cols-1 md:grid-cols-[2fr_100px_1.6fr_110px] gap-3 items-start">
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Item #{index + 1}</label>
                     <select
@@ -382,24 +606,30 @@ export default function DashboardOverview({ onNavigate, token, user, onLogout })
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Notes</label>
-                    <input
-                      className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg text-sm"
-                      type="text"
-                      placeholder="Optional"
-                      value={row.notes}
-                      onChange={(event) => handleQuickRowChange(row.id, "notes", event.target.value)}
-                    />
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Customization</label>
+                    <div className="min-h-10 px-3 py-2.5 rounded-lg bg-slate-50 text-xs text-slate-600 leading-relaxed">
+                      {getQuickRowCustomizationSummary(row)}
+                    </div>
                   </div>
-                  <button
-                    className="mt-6 size-10 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-50"
-                    type="button"
-                    onClick={() => handleRemoveQuickRow(row.id)}
-                    disabled={quickOrderRows.length === 1}
-                    title="Remove row"
-                  >
-                    <span className="material-symbols-outlined text-base">remove</span>
-                  </button>
+                  <div className="mt-6 flex items-center gap-2">
+                    <button
+                      className="size-10 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      type="button"
+                      onClick={() => handleOpenQuickRowEditor(row.id)}
+                      title="Edit item"
+                    >
+                      <span className="material-symbols-outlined text-base">edit</span>
+                    </button>
+                    <button
+                      className="size-10 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-50"
+                      type="button"
+                      onClick={() => handleRemoveQuickRow(row.id)}
+                      disabled={quickOrderRows.length === 1}
+                      title="Remove row"
+                    >
+                      <span className="material-symbols-outlined text-base">remove</span>
+                    </button>
+                  </div>
                 </div>
               ))}
 
@@ -435,8 +665,153 @@ export default function DashboardOverview({ onNavigate, token, user, onLogout })
               ) : null}
             </form>
           </div>
+
+          {editingQuickRowId ? (
+            <div
+              className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50"
+              onClick={handleCloseQuickRowEditor}
+            >
+              <div
+                className="w-full max-w-2xl max-h-[90vh] rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden flex flex-col"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                  <div>
+                    <h4 className="text-lg font-bold">
+                      Edit Item #{quickRowBeingEditedIndex >= 0 ? quickRowBeingEditedIndex + 1 : "-"}
+                    </h4>
+                    <p className="text-xs text-slate-500">
+                      {quickRowEditorMenuItem
+                        ? quickRowEditorMenuItem.name
+                        : "Select a menu item first to customize ingredients."}
+                    </p>
+                  </div>
+                  <button
+                    className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
+                    type="button"
+                    onClick={handleCloseQuickRowEditor}
+                  >
+                    <span className="material-symbols-outlined">close</span>
+                  </button>
+                </div>
+
+                <div className="px-5 py-4 space-y-5 overflow-y-auto">
+                  <section>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                      Description
+                    </label>
+                    <textarea
+                      className="w-full min-h-24 px-4 py-3 bg-slate-50 border-none rounded-lg text-sm resize-y"
+                      placeholder="Example: Make it spicy, toast the bun, no mayo..."
+                      value={quickRowEditorDraft.customDescription}
+                      onChange={(event) =>
+                        setQuickRowEditorDraft((previous) => ({
+                          ...previous,
+                          customDescription: event.target.value,
+                        }))
+                      }
+                    />
+                  </section>
+
+                  <section>
+                    <p className="text-xs font-bold text-slate-500 uppercase mb-2">Remove Ingredients</p>
+                    {quickRowEditorMenuItem && removableIngredientOptions.length ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {removableIngredientOptions.map((ingredient) => {
+                          const removeInputId = `remove-${editingQuickRowId}-${ingredient
+                            .toLowerCase()
+                            .replace(/\s+/g, "-")}`;
+                          return (
+                            <label
+                              key={removeInputId}
+                              htmlFor={removeInputId}
+                              className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm cursor-pointer hover:bg-slate-50"
+                            >
+                              <input
+                                id={removeInputId}
+                                type="checkbox"
+                                checked={isIngredientSelected(
+                                  quickRowEditorDraft.removeIngredients,
+                                  ingredient
+                                )}
+                                onChange={() =>
+                                  handleToggleDraftIngredient("removeIngredients", ingredient)
+                                }
+                              />
+                              <span>{ingredient}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-500">
+                        {quickRowEditorMenuItem
+                          ? "No ingredient list is available for this menu item."
+                          : "Select a menu item in the row before editing ingredients."}
+                      </p>
+                    )}
+                  </section>
+
+                  <section>
+                    <p className="text-xs font-bold text-slate-500 uppercase mb-2">Add Ingredients</p>
+                    {quickRowEditorMenuItem ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {addableIngredientOptions.map((ingredient) => {
+                          const addInputId = `add-${editingQuickRowId}-${ingredient
+                            .toLowerCase()
+                            .replace(/\s+/g, "-")}`;
+                          return (
+                            <label
+                              key={addInputId}
+                              htmlFor={addInputId}
+                              className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm cursor-pointer hover:bg-slate-50"
+                            >
+                              <input
+                                id={addInputId}
+                                type="checkbox"
+                                checked={isIngredientSelected(
+                                  quickRowEditorDraft.addIngredients,
+                                  ingredient
+                                )}
+                                onChange={() =>
+                                  handleToggleDraftIngredient("addIngredients", ingredient)
+                                }
+                              />
+                              <span>{ingredient}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-500">
+                        Select a menu item in the row before editing ingredients.
+                      </p>
+                    )}
+                  </section>
+                </div>
+
+                <div className="px-5 py-4 border-t border-slate-100 flex items-center justify-end gap-2">
+                  <button
+                    className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100"
+                    type="button"
+                    onClick={handleCloseQuickRowEditor}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="px-5 py-2 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800"
+                    type="button"
+                    onClick={handleSaveQuickRowEditor}
+                  >
+                    Save Item
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </>
   );
 }
+

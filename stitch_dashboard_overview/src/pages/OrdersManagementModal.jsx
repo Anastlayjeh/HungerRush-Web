@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import RestaurantShell from "../components/RestaurantShell.jsx";
 import { api } from "../lib/api.js";
 import {
@@ -40,6 +40,123 @@ function formatDateTime(value) {
   return date.toLocaleString();
 }
 
+function splitIngredientTokens(value) {
+  return String(value || "")
+    .replace(/\bplease\b/gi, "")
+    .split(/,|\/|;|\n|\band\b/gi)
+    .map((token) => token.trim().replace(/^[+\-\s]+/, "").replace(/\s+/g, " "))
+    .map((token) => token.replace(/[.!?]+$/, ""))
+    .filter(Boolean);
+}
+
+function normalizeIngredientToken(value) {
+  const normalized = String(value || "")
+    .toLowerCase()
+    .replace(/^(the|a|an)\s+/, "")
+    .trim();
+
+  return normalized || null;
+}
+
+function parseIngredientChanges(notes) {
+  if (!notes) {
+    return { added: [], removed: [] };
+  }
+
+  const added = new Set();
+  const removed = new Set();
+  const normalizedNotes = String(notes);
+
+  const addPattern = /(?:^|[\s,.;])(?:add|extra|plus)\s+([^.;\n]+)/gi;
+  const removePattern = /(?:^|[\s,.;])(?:no|without|remove|minus)\s+([^.;\n]+)/gi;
+  const symbolAddPattern = /(?:^|\s)\+([a-z][a-z\s-]*)/gi;
+  const symbolRemovePattern = /(?:^|\s)-([a-z][a-z\s-]*)/gi;
+
+  for (const match of normalizedNotes.matchAll(addPattern)) {
+    splitIngredientTokens(match[1]).forEach((token) => {
+      const item = normalizeIngredientToken(token);
+      if (!item || /^(remove|without|no|minus)\b/.test(item)) return;
+      added.add(item);
+    });
+  }
+
+  for (const match of normalizedNotes.matchAll(removePattern)) {
+    splitIngredientTokens(match[1]).forEach((token) => {
+      const item = normalizeIngredientToken(token);
+      if (!item || /^(add|extra|plus)\b/.test(item)) return;
+      removed.add(item);
+    });
+  }
+
+  for (const match of normalizedNotes.matchAll(symbolAddPattern)) {
+    splitIngredientTokens(match[1]).forEach((token) => {
+      const item = normalizeIngredientToken(token);
+      if (!item) return;
+      added.add(item);
+    });
+  }
+
+  for (const match of normalizedNotes.matchAll(symbolRemovePattern)) {
+    splitIngredientTokens(match[1]).forEach((token) => {
+      const item = normalizeIngredientToken(token);
+      if (!item) return;
+      removed.add(item);
+    });
+  }
+
+  return {
+    added: Array.from(added),
+    removed: Array.from(removed),
+  };
+}
+
+function extractCustomerDescription(notes) {
+  if (!notes) return "";
+
+  const segments = String(notes)
+    .split(/\s*\|\s*|\s*;\s*|\s*\n+\s*|\.\s+/)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+
+  const descriptionSegments = segments.filter((segment) => {
+    const normalized = segment.toLowerCase();
+    if (/^(add|extra|plus|remove|without|no|minus)\b/.test(normalized)) return false;
+    if (/^[+-]\s*[a-z]/.test(normalized)) return false;
+    return true;
+  });
+
+  return descriptionSegments.join(". ").trim();
+}
+
+function toIngredientChangeLines(changes) {
+  const lines = [];
+
+  (changes?.added || []).forEach((ingredient) => {
+    lines.push(`add ${ingredient}\u2705`);
+  });
+
+  (changes?.removed || []).forEach((ingredient) => {
+    lines.push(`remove ${ingredient}\u274C`);
+  });
+
+  return lines;
+}
+
+function normalizeMenuIngredients(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
 function estimateQueueTimeMinutes(orders) {
   const activeOrders = orders.filter((order) => ACTIVE_ORDER_STATUSES.has(order?.status));
   if (!activeOrders.length) return 0;
@@ -65,6 +182,7 @@ export default function OrdersManagementModal({ onNavigate, token, user, onLogou
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [orderDetails, setOrderDetails] = useState(null);
   const [loadingOrderDetails, setLoadingOrderDetails] = useState(false);
+  const [selectedOrderItem, setSelectedOrderItem] = useState(null);
 
   useEffect(() => {
     if (!token) return undefined;
@@ -119,6 +237,7 @@ export default function OrdersManagementModal({ onNavigate, token, user, onLogou
     if (!orderId) return;
 
     setSelectedOrderId(orderId);
+    setSelectedOrderItem(null);
     setLoadingOrderDetails(true);
     setError("");
     try {
@@ -135,8 +254,44 @@ export default function OrdersManagementModal({ onNavigate, token, user, onLogou
   const closeOrderDetails = () => {
     setSelectedOrderId(null);
     setOrderDetails(null);
+    setSelectedOrderItem(null);
     setLoadingOrderDetails(false);
   };
+
+  const closeOrderItemDetails = () => {
+    setSelectedOrderItem(null);
+  };
+
+  useEffect(() => {
+    if (!selectedOrderItem) return undefined;
+
+    const handleEscClose = (event) => {
+      if (event.key === "Escape") {
+        setSelectedOrderItem(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleEscClose);
+    return () => window.removeEventListener("keydown", handleEscClose);
+  }, [selectedOrderItem]);
+
+  const selectedItemIngredientChanges = useMemo(
+    () => parseIngredientChanges(selectedOrderItem?.notes),
+    [selectedOrderItem]
+  );
+  const selectedItemIngredientLines = useMemo(
+    () => toIngredientChangeLines(selectedItemIngredientChanges),
+    [selectedItemIngredientChanges]
+  );
+  const selectedItemCustomerDescription = useMemo(
+    () => extractCustomerDescription(selectedOrderItem?.notes),
+    [selectedOrderItem]
+  );
+
+  const selectedItemDefaultIngredients = useMemo(
+    () => normalizeMenuIngredients(selectedOrderItem?.menu_item?.ingredients),
+    [selectedOrderItem]
+  );
 
   const refreshOrderRow = (updatedOrder) => {
     setOrders((previous) =>
@@ -419,23 +574,53 @@ export default function OrdersManagementModal({ onNavigate, token, user, onLogou
                           <th className="px-4 py-2 text-xs uppercase text-slate-500">Qty</th>
                           <th className="px-4 py-2 text-xs uppercase text-slate-500 text-right">Unit</th>
                           <th className="px-4 py-2 text-xs uppercase text-slate-500 text-right">Line Total</th>
+                          <th className="px-4 py-2 text-xs uppercase text-slate-500">Add</th>
+                          <th className="px-4 py-2 text-xs uppercase text-slate-500">Remove</th>
                           <th className="px-4 py-2 text-xs uppercase text-slate-500">Notes</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {(orderDetails.items || []).map((item) => (
-                          <tr key={item.id}>
-                            <td className="px-4 py-3 text-sm font-semibold">
-                              {item?.menu_item?.name || `Item #${item.menu_item_id}`}
-                            </td>
-                            <td className="px-4 py-3 text-sm">{item.quantity}</td>
-                            <td className="px-4 py-3 text-sm text-right">{toMoney(item.unit_price)}</td>
-                            <td className="px-4 py-3 text-sm text-right font-semibold">
-                              {toMoney(Number(item.unit_price || 0) * Number(item.quantity || 0))}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-slate-600">{item.notes || "-"}</td>
-                          </tr>
-                        ))}
+                        {(orderDetails.items || []).map((item) => {
+                          const itemIngredientChanges = parseIngredientChanges(item?.notes);
+                          const itemCustomerDescription = extractCustomerDescription(item?.notes);
+
+                          return (
+                            <tr
+                              key={item.id}
+                              className="cursor-pointer hover:bg-slate-50"
+                              onClick={() => setSelectedOrderItem(item)}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter" || event.key === " ") {
+                                  event.preventDefault();
+                                  setSelectedOrderItem(item);
+                                }
+                              }}
+                              tabIndex={0}
+                              role="button"
+                            >
+                              <td className="px-4 py-3 text-sm font-semibold">
+                                <span>{item?.menu_item?.name || `Item #${item.menu_item_id}`}</span>
+                                <p className="text-[11px] text-slate-400 mt-0.5">Click for details</p>
+                              </td>
+                              <td className="px-4 py-3 text-sm">{item.quantity}</td>
+                              <td className="px-4 py-3 text-sm text-right">{toMoney(item.unit_price)}</td>
+                              <td className="px-4 py-3 text-sm text-right font-semibold">
+                                {toMoney(Number(item.unit_price || 0) * Number(item.quantity || 0))}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-slate-700">
+                                {itemIngredientChanges.added.length
+                                  ? itemIngredientChanges.added.map((ingredient) => `add ${ingredient}`).join(", ")
+                                  : "-"}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-slate-700">
+                                {itemIngredientChanges.removed.length
+                                  ? itemIngredientChanges.removed.map((ingredient) => `remove ${ingredient}`).join(", ")
+                                  : "-"}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-slate-600">{itemCustomerDescription || "-"}</td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </section>
@@ -455,7 +640,7 @@ export default function OrdersManagementModal({ onNavigate, token, user, onLogou
                           {(orderDetails.status_history || orderDetails.statusHistory || []).map((entry) => (
                             <li key={entry.id} className="text-sm">
                               <span className="font-semibold">{getOrderStatusLabel(entry.status)}</span>
-                              <span className="text-slate-500"> • {formatDateTime(entry.changed_at)}</span>
+                              <span className="text-slate-500">{" \u2022 "}{formatDateTime(entry.changed_at)}</span>
                             </li>
                           ))}
                         </ul>
@@ -470,8 +655,96 @@ export default function OrdersManagementModal({ onNavigate, token, user, onLogou
               )}
             </div>
           </div>
+
+          {selectedOrderItem ? (
+            <div
+              className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50"
+              onClick={closeOrderItemDetails}
+            >
+              <div
+                className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                  <div>
+                    <h4 className="text-lg font-bold">
+                      {selectedOrderItem?.menu_item?.name || `Item #${selectedOrderItem?.menu_item_id}`}
+                    </h4>
+                    <p className="text-xs text-slate-500">Item customization details</p>
+                  </div>
+                  <button
+                    className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
+                    type="button"
+                    onClick={closeOrderItemDetails}
+                  >
+                    <span className="material-symbols-outlined">close</span>
+                  </button>
+                </div>
+
+                <div className="px-5 py-4 space-y-4">
+                  <div className="grid grid-cols-3 gap-3 text-sm">
+                    <div className="rounded-lg bg-slate-50 px-3 py-2">
+                      <p className="text-[11px] font-bold uppercase text-slate-500">Qty</p>
+                      <p className="font-semibold">{selectedOrderItem?.quantity || "-"}</p>
+                    </div>
+                    <div className="rounded-lg bg-slate-50 px-3 py-2">
+                      <p className="text-[11px] font-bold uppercase text-slate-500">Unit</p>
+                      <p className="font-semibold">{toMoney(selectedOrderItem?.unit_price)}</p>
+                    </div>
+                    <div className="rounded-lg bg-slate-50 px-3 py-2">
+                      <p className="text-[11px] font-bold uppercase text-slate-500">Line Total</p>
+                      <p className="font-semibold">
+                        {toMoney(
+                          Number(selectedOrderItem?.unit_price || 0) * Number(selectedOrderItem?.quantity || 0)
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  <section className="space-y-1">
+                    <p className="text-xs font-bold uppercase text-slate-500">Menu Description</p>
+                    <p className="text-sm text-slate-700">
+                      {selectedOrderItem?.menu_item?.description || "No menu description provided."}
+                    </p>
+                  </section>
+
+                  <section className="space-y-2">
+                    <p className="text-xs font-bold uppercase text-slate-500">Ingredient Changes</p>
+                    {selectedItemIngredientLines.length ? (
+                      <ul className="space-y-1">
+                        {selectedItemIngredientLines.map((line) => (
+                          <li key={line} className="text-sm text-slate-700 font-medium">
+                            {line}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-slate-500">
+                        No explicit ingredient changes detected in the customer notes.
+                      </p>
+                    )}
+                  </section>
+
+                  {selectedItemDefaultIngredients.length ? (
+                    <section className="space-y-1">
+                      <p className="text-xs font-bold uppercase text-slate-500">Default Ingredients</p>
+                      <p className="text-sm text-slate-700">{selectedItemDefaultIngredients.join(", ")}</p>
+                    </section>
+                  ) : null}
+
+                  {selectedItemCustomerDescription ? (
+                    <section className="space-y-1">
+                      <p className="text-xs font-bold uppercase text-slate-500">Customer Description</p>
+                      <p className="text-sm text-slate-700">{selectedItemCustomerDescription}</p>
+                    </section>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </>
   );
 }
+

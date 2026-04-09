@@ -15,7 +15,7 @@ function createInitialFormState() {
     name: "",
     price: "",
     description: "",
-    ingredients: "",
+    ingredients: [],
     categoryId: "",
     newCategoryName: "",
     prepTime: "",
@@ -52,13 +52,42 @@ function suggestIngredients(itemName, categoryName = "") {
   return "Salt, pepper, olive oil, and chef special seasoning";
 }
 
+function parseIngredientList(value) {
+  const source = Array.isArray(value) ? value.join(",") : String(value || "");
+  const chunks = source
+    .split(/,|;|\n/)
+    .map((entry) => String(entry || "").trim())
+    .filter(Boolean);
+
+  const seen = new Set();
+  const unique = [];
+  for (const chunk of chunks) {
+    const key = chunk.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(chunk);
+  }
+
+  return unique;
+}
+
+function ingredientListToString(value) {
+  return parseIngredientList(value).join(", ");
+}
+
+function getSuggestedIngredientList(itemName, categoryName = "") {
+  return parseIngredientList(suggestIngredients(itemName, categoryName));
+}
+
 function createItemDetailsState(item = null, categoryName = "") {
+  const rawIngredients = item?.ingredients || suggestIngredients(item?.name, categoryName);
+
   return {
     id: item?.id || null,
     categoryId: item?.category_id !== undefined && item?.category_id !== null ? String(item.category_id) : "",
     name: item?.name || "",
     description: item?.description || "",
-    ingredients: item?.ingredients || suggestIngredients(item?.name, categoryName),
+    ingredients: parseIngredientList(rawIngredients),
     price: item?.price !== undefined && item?.price !== null ? String(item.price) : "",
     prepTime: item?.prep_time !== undefined && item?.prep_time !== null ? String(item.prep_time) : "",
     isAvailable: Boolean(item?.is_available),
@@ -78,7 +107,9 @@ function normalizeImageUrls(imageUrls) {
 function MenuCard({ item, categoryName, isUpdating, onDelete, onOpenDetails, onToggleAvailability }) {
   const isAvailable = Boolean(item?.is_available);
   const imageUrls = normalizeImageUrls(item?.image_urls);
-  const displayIngredients = item?.ingredients || suggestIngredients(item?.name, categoryName);
+  const displayIngredients = ingredientListToString(
+    item?.ingredients || suggestIngredients(item?.name, categoryName)
+  );
   const previewImage =
     imageUrls[0] ||
     "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=900&q=80";
@@ -271,7 +302,7 @@ export default function MenuManagementModal({ onNavigate, token, user, onLogout 
         !normalizedSearch ||
         String(item?.name || "").toLowerCase().includes(normalizedSearch) ||
         String(item?.description || "").toLowerCase().includes(normalizedSearch) ||
-        String(item?.ingredients || "").toLowerCase().includes(normalizedSearch);
+        ingredientListToString(item?.ingredients).toLowerCase().includes(normalizedSearch);
 
       return matchesCategory && matchesSearch;
     });
@@ -364,8 +395,8 @@ export default function MenuManagementModal({ onNavigate, token, user, onLogout 
         name: form.name.trim(),
         description: form.description.trim() || undefined,
         ingredients:
-          form.ingredients.trim()
-          || suggestIngredients(form.name.trim(), categoriesById[String(categoryId)]?.name || ""),
+          ingredientListToString(form.ingredients)
+          || ingredientListToString(getSuggestedIngredientList(form.name.trim(), categoriesById[String(categoryId)]?.name || "")),
         image_urls: imageUrls.length ? imageUrls : undefined,
         price: Number(form.price),
         is_available: form.isAvailable,
@@ -454,8 +485,8 @@ export default function MenuManagementModal({ onNavigate, token, user, onLogout 
         name: trimmedName,
         description: String(itemDetails.description || "").trim() || null,
         ingredients:
-          String(itemDetails.ingredients || "").trim()
-          || suggestIngredients(trimmedName, selectedCategoryName),
+          ingredientListToString(itemDetails.ingredients)
+          || ingredientListToString(getSuggestedIngredientList(trimmedName, selectedCategoryName)),
         image_urls: nextImageUrls,
         price: priceValue,
         is_available: Boolean(itemDetails.isAvailable),
@@ -603,7 +634,7 @@ export default function MenuManagementModal({ onNavigate, token, user, onLogout 
                       setForm((previous) => {
                         const nextName = event.target.value;
                         const selectedCategoryName = categoriesById[String(previous.categoryId)]?.name || "";
-                        const nextSuggestedIngredients = suggestIngredients(nextName, selectedCategoryName);
+                        const nextSuggestedIngredients = getSuggestedIngredientList(nextName, selectedCategoryName);
                         return {
                           ...previous,
                           name: nextName,
@@ -642,7 +673,7 @@ export default function MenuManagementModal({ onNavigate, token, user, onLogout 
                       setForm((previous) => {
                         const nextCategoryId = event.target.value;
                         const selectedCategoryName = categoriesById[String(nextCategoryId)]?.name || "";
-                        const nextSuggestedIngredients = suggestIngredients(previous.name, selectedCategoryName);
+                        const nextSuggestedIngredients = getSuggestedIngredientList(previous.name, selectedCategoryName);
                         return {
                           ...previous,
                           categoryId: nextCategoryId,
@@ -707,35 +738,80 @@ export default function MenuManagementModal({ onNavigate, token, user, onLogout 
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center justify-between mb-2">
                   <label className="block text-xs font-bold text-slate-500 uppercase">Ingredients</label>
-                  <button
-                    className="text-[11px] font-semibold text-primary hover:underline"
-                    type="button"
-                    onClick={() => {
-                      setForm((previous) => ({
-                        ...previous,
-                        ingredients: suggestIngredients(
-                          previous.name,
-                          categoriesById[String(previous.categoryId)]?.name || ""
-                        ),
-                      }));
-                      setIsIngredientsManuallyEdited(false);
-                    }}
-                  >
-                    Use Suggested
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      className="text-[11px] font-semibold text-primary hover:underline"
+                      type="button"
+                      onClick={() => {
+                        setForm((previous) => ({
+                          ...previous,
+                          ingredients: getSuggestedIngredientList(
+                            previous.name,
+                            categoriesById[String(previous.categoryId)]?.name || ""
+                          ),
+                        }));
+                        setIsIngredientsManuallyEdited(false);
+                      }}
+                    >
+                      Use Suggested
+                    </button>
+                    <button
+                      className="text-[11px] font-semibold text-slate-700 hover:underline"
+                      type="button"
+                      onClick={() => {
+                        setIsIngredientsManuallyEdited(true);
+                        setForm((previous) => ({
+                          ...previous,
+                          ingredients: [...(Array.isArray(previous.ingredients) ? previous.ingredients : []), ""],
+                        }));
+                      }}
+                    >
+                      Add Ingredient
+                    </button>
+                  </div>
                 </div>
-                <textarea
-                  className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg focus:ring-2 focus:ring-primary/20 text-sm resize-none"
-                  placeholder="e.g. Beef, lettuce, tomato, cheese"
-                  rows="2"
-                  value={form.ingredients}
-                  onChange={(event) => {
-                    setIsIngredientsManuallyEdited(true);
-                    setForm((previous) => ({ ...previous, ingredients: event.target.value }));
-                  }}
-                ></textarea>
+                {form.ingredients.length ? (
+                  <div className="space-y-2">
+                    {form.ingredients.map((ingredient, index) => (
+                      <div key={`new-ingredient-${index}`} className="flex items-center gap-2">
+                        <input
+                          className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg focus:ring-2 focus:ring-primary/20 text-sm"
+                          type="text"
+                          placeholder={`Ingredient ${index + 1}`}
+                          value={ingredient}
+                          onChange={(event) => {
+                            const nextValue = event.target.value;
+                            setIsIngredientsManuallyEdited(true);
+                            setForm((previous) => ({
+                              ...previous,
+                              ingredients: previous.ingredients.map((entry, entryIndex) =>
+                                entryIndex === index ? nextValue : entry
+                              ),
+                            }));
+                          }}
+                        />
+                        <button
+                          className="size-10 rounded-lg bg-red-50 text-red-700 hover:bg-red-100"
+                          type="button"
+                          onClick={() => {
+                            setIsIngredientsManuallyEdited(true);
+                            setForm((previous) => ({
+                              ...previous,
+                              ingredients: previous.ingredients.filter((_, entryIndex) => entryIndex !== index),
+                            }));
+                          }}
+                          title="Remove ingredient"
+                        >
+                          <span className="material-symbols-outlined text-base">remove</span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500">No ingredients yet. Click Add Ingredient to start a list.</p>
+                )}
               </div>
 
               <div>
@@ -817,7 +893,7 @@ export default function MenuManagementModal({ onNavigate, token, user, onLogout 
 
       {isItemDetailsOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60">
-          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden">
+          <div className="bg-white w-full max-w-lg max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col">
             <div className="p-6 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="text-xl font-bold">Item Details</h3>
@@ -833,7 +909,7 @@ export default function MenuManagementModal({ onNavigate, token, user, onLogout 
               </button>
             </div>
 
-            <form className="p-6 space-y-4" onSubmit={handleSaveItemDetails}>
+            <form className="p-6 space-y-4 overflow-y-auto min-h-0" onSubmit={handleSaveItemDetails}>
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2 sm:col-span-1">
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Item Name</label>
@@ -879,32 +955,81 @@ export default function MenuManagementModal({ onNavigate, token, user, onLogout 
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Ingredients</label>
-                <textarea
-                  className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg focus:ring-2 focus:ring-primary/20 text-sm resize-none"
-                  rows="2"
-                  value={itemDetails.ingredients}
-                  onChange={(event) =>
-                    setItemDetails((previous) => ({ ...previous, ingredients: event.target.value }))
-                  }
-                  disabled={isSavingDetails}
-                ></textarea>
-                <button
-                  className="mt-2 text-[11px] font-semibold text-primary hover:underline"
-                  type="button"
-                  onClick={() =>
-                    setItemDetails((previous) => ({
-                      ...previous,
-                      ingredients: suggestIngredients(
-                        previous.name,
-                        categoriesById[String(previous.categoryId)]?.name || ""
-                      ),
-                    }))
-                  }
-                  disabled={isSavingDetails}
-                >
-                  Use Suggested Ingredients
-                </button>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-bold text-slate-500 uppercase">Ingredients</label>
+                  <div className="flex items-center gap-3">
+                    <button
+                      className="text-[11px] font-semibold text-primary hover:underline"
+                      type="button"
+                      onClick={() =>
+                        setItemDetails((previous) => ({
+                          ...previous,
+                          ingredients: getSuggestedIngredientList(
+                            previous.name,
+                            categoriesById[String(previous.categoryId)]?.name || ""
+                          ),
+                        }))
+                      }
+                      disabled={isSavingDetails}
+                    >
+                      Use Suggested Ingredients
+                    </button>
+                    <button
+                      className="text-[11px] font-semibold text-slate-700 hover:underline disabled:opacity-60"
+                      type="button"
+                      onClick={() =>
+                        setItemDetails((previous) => ({
+                          ...previous,
+                          ingredients: [...(Array.isArray(previous.ingredients) ? previous.ingredients : []), ""],
+                        }))
+                      }
+                      disabled={isSavingDetails}
+                    >
+                      Add Ingredient
+                    </button>
+                  </div>
+                </div>
+
+                {itemDetails.ingredients.length ? (
+                  <div className="space-y-2">
+                    {itemDetails.ingredients.map((ingredient, index) => (
+                      <div key={`detail-ingredient-${index}`} className="flex items-center gap-2">
+                        <input
+                          className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg focus:ring-2 focus:ring-primary/20 text-sm"
+                          type="text"
+                          placeholder={`Ingredient ${index + 1}`}
+                          value={ingredient}
+                          onChange={(event) => {
+                            const nextValue = event.target.value;
+                            setItemDetails((previous) => ({
+                              ...previous,
+                              ingredients: previous.ingredients.map((entry, entryIndex) =>
+                                entryIndex === index ? nextValue : entry
+                              ),
+                            }));
+                          }}
+                          disabled={isSavingDetails}
+                        />
+                        <button
+                          className="size-10 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-60"
+                          type="button"
+                          onClick={() =>
+                            setItemDetails((previous) => ({
+                              ...previous,
+                              ingredients: previous.ingredients.filter((_, entryIndex) => entryIndex !== index),
+                            }))
+                          }
+                          disabled={isSavingDetails}
+                          title="Remove ingredient"
+                        >
+                          <span className="material-symbols-outlined text-base">remove</span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500">No ingredients yet. Click Add Ingredient to start a list.</p>
+                )}
               </div>
 
               <div>
