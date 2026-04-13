@@ -394,6 +394,7 @@ export const api = {
       await request(
         withQuery("/v1/restaurant/loyalty/overview", {
           q: params.search,
+          status: params.status,
         }),
         {
           method: "GET",

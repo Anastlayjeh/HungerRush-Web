@@ -268,11 +268,49 @@ class RestaurantExtendedApiTest extends TestCase
             ->assertJsonPath('data.status', 'archived');
 
         $this->actingAs($owner, 'sanctum')
+            ->postJson('/api/v1/restaurant/loyalty/rewards', [
+                'name' => 'Welcome Discount',
+                'description' => 'Starter discount for first redemptions.',
+                'points_required' => 300,
+                'reward_type' => 'discount',
+                'status' => 'active',
+            ])
+            ->assertCreated();
+
+        $this->actingAs($owner, 'sanctum')
+            ->postJson('/api/v1/restaurant/loyalty/rewards', [
+                'name' => 'Draft Reward',
+                'description' => 'Still being prepared.',
+                'points_required' => 500,
+                'reward_type' => 'custom',
+                'status' => 'draft',
+            ])
+            ->assertCreated();
+
+        $this->actingAs($owner, 'sanctum')
             ->getJson('/api/v1/restaurant/loyalty/overview')
             ->assertOk()
             ->assertJsonPath('data.stats.active_members', 1)
-            ->assertJsonCount(1, 'data.rewards')
+            ->assertJsonCount(3, 'data.rewards')
             ->assertJsonCount(1, 'data.top_customers');
+
+        $this->actingAs($owner, 'sanctum')
+            ->getJson('/api/v1/restaurant/loyalty/overview?status=active')
+            ->assertOk()
+            ->assertJsonCount(1, 'data.rewards')
+            ->assertJsonPath('data.rewards.0.status', 'active');
+
+        $this->actingAs($owner, 'sanctum')
+            ->getJson('/api/v1/restaurant/loyalty/overview?status=draft')
+            ->assertOk()
+            ->assertJsonCount(1, 'data.rewards')
+            ->assertJsonPath('data.rewards.0.status', 'draft');
+
+        $this->actingAs($owner, 'sanctum')
+            ->getJson('/api/v1/restaurant/loyalty/overview?status=archived')
+            ->assertOk()
+            ->assertJsonCount(1, 'data.rewards')
+            ->assertJsonPath('data.rewards.0.status', 'archived');
     }
 
     public function test_restaurant_owner_can_fetch_analytics_and_update_settings(): void

@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\OrderStatus;
 use App\Models\LoyaltyMember;
 use App\Models\LoyaltyRedemption;
 use App\Models\LoyaltyReward;
@@ -167,7 +168,17 @@ class DemoDataSeeder extends Seeder
         );
 
         $allCustomers = $extraCustomers->prepend($customer);
-        $statuses = ['accepted', 'preparing', 'ready_for_pickup', 'on_the_way', 'delivered', 'delivered'];
+        $statuses = [
+            'accepted',
+            'preparing',
+            'ready_for_pickup',
+            'on_the_way',
+            'delivered',
+            'delivered',
+            'delivered',
+            'delivered',
+            'delivered',
+        ];
 
         $createdOrders = [$baseOrder];
         foreach ($statuses as $index => $status) {
@@ -182,25 +193,57 @@ class DemoDataSeeder extends Seeder
             );
         }
 
-        foreach (array_slice($createdOrders, -4) as $orderIndex => $order) {
-            if ($order->status !== 'delivered') {
-                continue;
-            }
+        $reviewTemplates = [
+            [
+                'rating' => 5,
+                'comment' => 'Great food and quick delivery.',
+                'reply' => 'Thank you for the feedback, we appreciate you.',
+            ],
+            [
+                'rating' => 4,
+                'comment' => 'Loved the burger, fries could be hotter.',
+                'reply' => null,
+            ],
+            [
+                'rating' => 5,
+                'comment' => 'Fantastic quality and packaging.',
+                'reply' => 'Glad you enjoyed it. See you again soon.',
+            ],
+            [
+                'rating' => 3,
+                'comment' => 'Taste was good, delivery was a little late.',
+                'reply' => null,
+            ],
+            [
+                'rating' => 4,
+                'comment' => 'Portion size was generous and still warm on arrival.',
+                'reply' => 'Thanks for sharing this, we are happy it arrived hot.',
+            ],
+        ];
+
+        $deliveredOrders = collect($createdOrders)
+            ->filter(function (Order $order) {
+                $statusValue = $order->status instanceof OrderStatus
+                    ? $order->status->value
+                    : (string) $order->status;
+
+                return $statusValue === OrderStatus::Delivered->value;
+            })
+            ->values();
+
+        foreach ($deliveredOrders as $orderIndex => $order) {
+            $template = $reviewTemplates[$orderIndex % count($reviewTemplates)];
+            $hasReply = $template['reply'] !== null;
 
             Review::create([
                 'restaurant_id' => $restaurant->id,
                 'customer_id' => $order->customer_id,
                 'order_id' => $order->id,
-                'rating' => [5, 4, 5, 3][$orderIndex % 4],
-                'comment' => [
-                    'Great food and quick delivery.',
-                    'Loved the burger, fries could be hotter.',
-                    'Fantastic quality and packaging.',
-                    'Taste was good, delivery was a little late.',
-                ][$orderIndex % 4],
-                'reply' => $orderIndex % 2 === 0 ? 'Thank you for the feedback, we appreciate you.' : null,
-                'replied_by' => $orderIndex % 2 === 0 ? $owner->id : null,
-                'replied_at' => $orderIndex % 2 === 0 ? now()->subDays($orderIndex) : null,
+                'rating' => $template['rating'],
+                'comment' => $template['comment'],
+                'reply' => $template['reply'],
+                'replied_by' => $hasReply ? $owner->id : null,
+                'replied_at' => $hasReply ? now()->subDays($orderIndex) : null,
                 'created_at' => now()->subDays($orderIndex + 1),
                 'updated_at' => now()->subDays($orderIndex + 1),
             ]);

@@ -17,6 +17,8 @@ class LoyaltyController extends Controller
     {
         $restaurant = $this->resolveRestaurant();
         $search = trim((string) $request->query('q', ''));
+        $status = trim((string) $request->query('status', 'all'));
+        $allowedRewardStatuses = ['active', 'draft', 'archived'];
 
         $membersQuery = LoyaltyMember::query()
             ->where('restaurant_id', $restaurant->id)
@@ -31,8 +33,12 @@ class LoyaltyController extends Controller
         }
 
         $members = $membersQuery->get();
-        $rewards = LoyaltyReward::query()
-            ->where('restaurant_id', $restaurant->id)
+        $rewardsQuery = LoyaltyReward::query()->where('restaurant_id', $restaurant->id);
+        if (in_array($status, $allowedRewardStatuses, true)) {
+            $rewardsQuery->where('status', $status);
+        }
+
+        $rewards = $rewardsQuery
             ->latest()
             ->get();
 
@@ -146,4 +152,3 @@ class LoyaltyController extends Controller
         );
     }
 }
-

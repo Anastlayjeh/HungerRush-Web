@@ -16,6 +16,13 @@ const REWARD_STATUSES = [
   ["archived", "Archived"],
 ];
 
+const REWARD_FILTERS = [
+  ["all", "All"],
+  ["active", "Active"],
+  ["draft", "Draft"],
+  ["archived", "Archived"],
+];
+
 const emptyForm = () => ({
   id: null,
   name: "",
@@ -38,6 +45,7 @@ export default function LoyaltyRewards({ onNavigate, token, user, onLogout }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [rewardStatusFilter, setRewardStatusFilter] = useState("all");
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -50,7 +58,10 @@ export default function LoyaltyRewards({ onNavigate, token, user, onLogout }) {
       setLoading(true);
       setError("");
       try {
-        const payload = await api.getLoyaltyOverview(token, { search });
+        const payload = await api.getLoyaltyOverview(token, {
+          search,
+          status: rewardStatusFilter === "all" ? undefined : rewardStatusFilter,
+        });
         if (!isCancelled) setOverview(payload || null);
       } catch (requestError) {
         if (!isCancelled) setError(requestError?.message || "Failed to load loyalty data.");
@@ -63,7 +74,7 @@ export default function LoyaltyRewards({ onNavigate, token, user, onLogout }) {
     return () => {
       isCancelled = true;
     };
-  }, [token, search]);
+  }, [token, search, rewardStatusFilter]);
 
   const stats = overview?.stats || {};
   const rewards = overview?.rewards || [];
@@ -109,7 +120,10 @@ export default function LoyaltyRewards({ onNavigate, token, user, onLogout }) {
 
       setOpen(false);
       setForm(emptyForm());
-      const refreshed = await api.getLoyaltyOverview(token, { search });
+      const refreshed = await api.getLoyaltyOverview(token, {
+        search,
+        status: rewardStatusFilter === "all" ? undefined : rewardStatusFilter,
+      });
       setOverview(refreshed || null);
     } catch (requestError) {
       setError(requestError?.message || "Failed to save reward.");
@@ -165,7 +179,25 @@ export default function LoyaltyRewards({ onNavigate, token, user, onLogout }) {
 
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-4">
-            <h3 className="text-xl font-bold">Rewards</h3>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-xl font-bold">Rewards</h3>
+              <div className="flex flex-wrap gap-2">
+                {REWARD_FILTERS.map(([value, label]) => (
+                  <button
+                    key={value}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold ${
+                      rewardStatusFilter === value
+                        ? "bg-primary text-white"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                    type="button"
+                    onClick={() => setRewardStatusFilter(value)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {rewards.length ? rewards.map((reward) => (
                 <article key={reward.id} className="bg-white p-5 rounded-xl border border-primary/10">
