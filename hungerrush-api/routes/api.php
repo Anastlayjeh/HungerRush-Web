@@ -18,6 +18,8 @@ use App\Http\Controllers\Api\V1\Restaurant\VideoAssetUploadController;
 use App\Http\Controllers\Api\V1\Restaurant\VideoController;
 use Illuminate\Support\Facades\Route;
 
+Route::post('/auth/google', [AuthController::class, 'google']);
+
 Route::prefix('v1')->group(function () {
     Route::get('/restaurant/menu/images/{filename}', [MenuImageUploadController::class, 'show'])
         ->where('filename', '[A-Za-z0-9\-\._]+');
