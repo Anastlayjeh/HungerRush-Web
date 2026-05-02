@@ -12,31 +12,27 @@ class VideoAssetUploadController extends Controller
 {
     public function store(UploadVideoAssetRequest $request)
     {
-        $assetType = $request->validated()['asset_type'];
         $baseUrl = rtrim($request->getSchemeAndHttpHost(), '/');
-        $extension = strtolower($request->file('file')->getClientOriginalExtension() ?: ($assetType === 'video' ? 'mp4' : 'jpg'));
+        $extension = strtolower($request->file('file')->getClientOriginalExtension() ?: 'jpg');
         $filename = (string) Str::uuid() . '.' . $extension;
 
         if (app()->runningUnitTests()) {
             return $this->successResponse(
-                ['url' => "{$baseUrl}/api/v1/restaurant/videos/assets/{$assetType}/{$filename}"],
-                message: 'Video asset uploaded successfully.',
+                ['url' => "{$baseUrl}/api/v1/restaurant/videos/assets/thumbnail/{$filename}"],
+                message: 'Video thumbnail uploaded successfully.',
                 status: 201
             );
         }
 
-        $publicFolder = $assetType === 'video' ? 'uploads/videos' : 'uploads/video-thumbnails';
-        $storageFolder = $assetType === 'video' ? 'app/public/videos' : 'app/public/video-thumbnails';
-
         try {
-            $destination = public_path($publicFolder);
+            $destination = public_path('uploads/video-thumbnails');
             if (!File::exists($destination)) {
                 File::makeDirectory($destination, 0755, true);
             }
 
             $request->file('file')->move($destination, $filename);
         } catch (Throwable) {
-            $fallbackDestination = storage_path($storageFolder);
+            $fallbackDestination = storage_path('app/public/video-thumbnails');
             if (!File::exists($fallbackDestination)) {
                 File::makeDirectory($fallbackDestination, 0755, true);
             }
@@ -45,8 +41,8 @@ class VideoAssetUploadController extends Controller
         }
 
         return $this->successResponse(
-            ['url' => "{$baseUrl}/api/v1/restaurant/videos/assets/{$assetType}/{$filename}"],
-            message: 'Video asset uploaded successfully.',
+            ['url' => "{$baseUrl}/api/v1/restaurant/videos/assets/thumbnail/{$filename}"],
+            message: 'Video thumbnail uploaded successfully.',
             status: 201
         );
     }

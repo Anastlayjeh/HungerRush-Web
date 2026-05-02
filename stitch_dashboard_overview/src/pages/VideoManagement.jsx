@@ -8,8 +8,6 @@ function initialEditorState() {
     id: null,
     title: "",
     description: "",
-    mediaUrl: "",
-    thumbnailUrl: "",
     menuItemId: "",
     status: "draft",
   };
@@ -79,8 +77,6 @@ export default function VideoManagement({ onNavigate, token, user, onLogout }) {
           id: activeVideo.id,
           title: activeVideo.title || "",
           description: activeVideo.description || "",
-          mediaUrl: activeVideo.media_url || "",
-          thumbnailUrl: activeVideo.thumbnail_url || "",
           menuItemId: activeVideo.menu_item_id ? String(activeVideo.menu_item_id) : "",
           status: activeVideo.status || "draft",
         });
@@ -128,8 +124,6 @@ export default function VideoManagement({ onNavigate, token, user, onLogout }) {
       id: video.id,
       title: video.title || "",
       description: video.description || "",
-      mediaUrl: video.media_url || "",
-      thumbnailUrl: video.thumbnail_url || "",
       menuItemId: video.menu_item_id ? String(video.menu_item_id) : "",
       status: video.status || "draft",
     });
@@ -146,8 +140,6 @@ export default function VideoManagement({ onNavigate, token, user, onLogout }) {
       const updated = await api.updateVideo(token, editor.id, {
         title: editor.title.trim(),
         description: editor.description.trim() || undefined,
-        media_url: editor.mediaUrl.trim(),
-        thumbnail_url: editor.thumbnailUrl.trim() || undefined,
         menu_item_id: editor.menuItemId ? Number(editor.menuItemId) : null,
         status: editor.status,
       });
@@ -316,26 +308,21 @@ export default function VideoManagement({ onNavigate, token, user, onLogout }) {
                 ></textarea>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Media URL</label>
-                <input
-                  className="w-full bg-slate-50 border-none rounded-lg text-sm"
-                  type="url"
-                  value={editor.mediaUrl}
-                  onChange={(event) => setEditor((previous) => ({ ...previous, mediaUrl: event.target.value }))}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Thumbnail URL</label>
-                <input
-                  className="w-full bg-slate-50 border-none rounded-lg text-sm"
-                  type="url"
-                  value={editor.thumbnailUrl}
-                  onChange={(event) =>
-                    setEditor((previous) => ({ ...previous, thumbnailUrl: event.target.value }))
-                  }
-                />
+              <div className="grid grid-cols-1 gap-3">
+                <div className="rounded-lg bg-slate-50 px-3 py-3">
+                  <p className="text-xs font-bold text-slate-500 uppercase mb-1">Cloudflare Stream UID</p>
+                  <p className="text-sm break-all text-slate-700">{activeVideo.stream_uid || "Pending"}</p>
+                </div>
+                <div className="rounded-lg bg-slate-50 px-3 py-3">
+                  <p className="text-xs font-bold text-slate-500 uppercase mb-1">Stream Status</p>
+                  <p className="text-sm text-slate-700">
+                    {activeVideo.stream_status || "queued"} {activeVideo.stream_ready ? "(Ready)" : "(Processing)"}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-slate-50 px-3 py-3">
+                  <p className="text-xs font-bold text-slate-500 uppercase mb-1">HLS URL</p>
+                  <p className="text-sm break-all text-slate-700">{activeVideo.stream_hls_url || "Unavailable"}</p>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

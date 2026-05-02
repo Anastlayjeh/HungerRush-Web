@@ -16,12 +16,9 @@ class UpdateVideoRequest extends FormRequest
         return [
             'title' => ['sometimes', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'media_url' => ['sometimes', 'url', 'max:2048'],
-            'thumbnail_url' => ['nullable', 'url', 'max:2048'],
             'status' => ['sometimes', 'in:draft,published,archived'],
             'menu_item_id' => ['nullable', 'exists:menu_items,id'],
             'published_at' => ['nullable', 'date'],
         ];
     }
 }
-

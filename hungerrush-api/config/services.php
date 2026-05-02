@@ -39,4 +39,33 @@ return [
         ],
     ],
 
+    'cloudflare_stream' => [
+        'account_id' => env('CLOUDFLARE_STREAM_ACCOUNT_ID'),
+        'api_token' => env('CLOUDFLARE_STREAM_API_TOKEN'),
+        'customer_subdomain' => env('CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN'),
+        'timeout_seconds' => (int) env('CLOUDFLARE_STREAM_TIMEOUT_SECONDS', 180),
+    ],
+
+    'hugging_face' => [
+        'base_url' => env('HUGGING_FACE_BASE_URL', 'https://router.huggingface.co/hf-inference/models'),
+        'api_token' => env('HUGGING_FACE_API_TOKEN', env('HF_TOKEN')),
+        'model' => env('HUGGING_FACE_MODEL', 'google/vit-base-patch16-224'),
+        'food_keywords' => array_filter(array_map('trim', explode(',', (string) env('HUGGING_FACE_FOOD_KEYWORDS', 'food,pizza,burger,cheeseburger,hotdog,sandwich,taco,burrito,sushi,pasta,noodle,ramen,spaghetti,steak,salad,soup,cake,donut,ice cream,omelet,bagel,pretzel,waffle,restaurant meal')))),
+        'context_keywords' => array_filter(array_map('trim', explode(',', (string) env('HUGGING_FACE_CONTEXT_KEYWORDS', 'plate,dish,meal,restaurant,kitchen,cafeteria,dining,table,tray,buffet')))),
+        'top_k' => (int) env('HUGGING_FACE_TOP_K', 8),
+        'strong_match_min_score' => (float) env('HUGGING_FACE_STRONG_MATCH_MIN_SCORE', 0.2),
+        'context_match_min_score' => (float) env('HUGGING_FACE_CONTEXT_MATCH_MIN_SCORE', 0.15),
+        'context_min_matches' => (int) env('HUGGING_FACE_CONTEXT_MIN_MATCHES', 2),
+        'context_min_combined_score' => (float) env('HUGGING_FACE_CONTEXT_MIN_COMBINED_SCORE', 0.45),
+        'min_food_frame_ratio' => (float) env('HUGGING_FACE_MIN_FOOD_FRAME_RATIO', 0.6),
+        'timeout_seconds' => (int) env('HUGGING_FACE_TIMEOUT_SECONDS', 60),
+    ],
+
+    'video_processing' => [
+        'ffmpeg_binary' => env('VIDEO_FFMPEG_BINARY', 'ffmpeg'),
+        'ffprobe_binary' => env('VIDEO_FFPROBE_BINARY', 'ffprobe'),
+        'max_duration_seconds' => (int) env('VIDEO_MAX_DURATION_SECONDS', 180),
+        'frame_interval_seconds' => (int) env('VIDEO_FRAME_INTERVAL_SECONDS', 3),
+    ],
+
 ];

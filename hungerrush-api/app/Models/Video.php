@@ -18,6 +18,13 @@ class Video extends Model
         'description',
         'media_url',
         'thumbnail_url',
+        'cloudflare_stream_uid',
+        'duration_seconds',
+        'stream_status',
+        'stream_ready',
+        'stream_hls_url',
+        'stream_dash_url',
+        'stream_preview_url',
         'status',
         'published_at',
     ];
@@ -26,6 +33,7 @@ class Video extends Model
     {
         return [
             'published_at' => 'datetime',
+            'stream_ready' => 'boolean',
         ];
     }
 
@@ -42,5 +50,10 @@ class Video extends Model
     public function engagements(): HasMany
     {
         return $this->hasMany(VideoEngagement::class);
+    }
+
+    public function comments(): HasMany
+    {
+        return $this->hasMany(VideoComment::class);
     }
 }

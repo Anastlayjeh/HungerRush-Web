@@ -40,6 +40,25 @@ export class ApiError extends Error {
   }
 }
 
+function buildErrorMessage(payload) {
+  const baseMessage = payload?.message || "Request failed.";
+  const errors = payload?.errors;
+
+  if (!errors || typeof errors !== "object") {
+    return baseMessage;
+  }
+
+  const firstFieldErrors = Object.values(errors).find(
+    (value) => Array.isArray(value) && value.length > 0
+  );
+
+  if (!firstFieldErrors) {
+    return baseMessage;
+  }
+
+  return String(firstFieldErrors[0] || baseMessage);
+}
+
 async function request(path, options = {}) {
   const { token, body, headers = {}, ...rest } = options;
   const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
@@ -71,7 +90,7 @@ async function request(path, options = {}) {
   }
 
   if (!response.ok) {
-    const message = payload?.message || "Request failed.";
+    const message = buildErrorMessage(payload);
     throw new ApiError(message, response.status, payload);
   }
 
