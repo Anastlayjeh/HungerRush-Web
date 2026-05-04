@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -33,6 +34,21 @@ class User extends Authenticatable
             'last_login_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    protected function email(): Attribute
+    {
+        return Attribute::make(
+            set: static function ($value) {
+                if (!is_string($value)) {
+                    return $value;
+                }
+
+                $normalized = strtolower(trim($value));
+
+                return $normalized === '' ? null : $normalized;
+            }
+        );
     }
 
     public function ownedRestaurants(): HasMany

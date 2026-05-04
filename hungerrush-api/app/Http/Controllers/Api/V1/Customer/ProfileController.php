@@ -16,6 +16,19 @@ class ProfileController extends Controller
     public function update(Request $request)
     {
         $user = $request->user();
+
+        if ($request->has('email') && is_string($request->input('email'))) {
+            $request->merge([
+                'email' => strtolower(trim((string) $request->input('email'))),
+            ]);
+        }
+
+        if ($request->has('phone') && is_string($request->input('phone'))) {
+            $request->merge([
+                'phone' => trim((string) $request->input('phone')),
+            ]);
+        }
+
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
             'email' => ['sometimes', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],

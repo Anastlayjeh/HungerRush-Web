@@ -16,6 +16,10 @@ export default function RestaurantShell({
   onLogout,
   title,
   headerActions = null,
+  navItems = NAV_ITEMS,
+  brandIcon = "restaurant",
+  brandTitle = "HungerRush",
+  brandSubtitle = "Restaurant Management",
   children,
 }) {
   const profilePhotoUrl = user?.profilePhotoUrl || "";
@@ -25,16 +29,16 @@ export default function RestaurantShell({
       <aside className="w-64 border-r border-primary/10 bg-white dark:bg-background-dark/50 fixed h-full flex flex-col">
         <div className="p-6 flex items-center gap-3">
           <div className="bg-primary size-10 rounded-lg flex items-center justify-center text-white">
-            <span className="material-symbols-outlined">restaurant</span>
+            <span className="material-symbols-outlined">{brandIcon}</span>
           </div>
           <div>
-            <h1 className="text-base font-bold leading-none">HungerRush</h1>
-            <p className="text-primary text-xs font-semibold">Restaurant Management</p>
+            <h1 className="text-base font-bold leading-none">{brandTitle}</h1>
+            <p className="text-primary text-xs font-semibold">{brandSubtitle}</p>
           </div>
         </div>
 
         <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const isActive = item.key === activePage;
             return (
               <button
@@ -47,7 +51,9 @@ export default function RestaurantShell({
                 type="button"
                 onClick={() => onNavigate?.(item.key)}
               >
-                <span className="material-symbols-outlined">{item.icon}</span>
+                <span className={isActive ? "material-symbols-outlined sidebar-active-icon" : "material-symbols-outlined"}>
+                  {item.icon}
+                </span>
                 <span className="text-sm font-medium">{item.label}</span>
               </button>
             );

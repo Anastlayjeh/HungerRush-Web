@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\UserRole;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Controllers\Controller;
+use App\Models\RestaurantRegistration;
 use App\Models\User;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
@@ -12,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -19,7 +22,24 @@ class AuthController extends Controller
 {
     public function register(RegisterRequest $request)
     {
-        $user = User::create($request->validated());
+        $validated = $request->validated();
+        $user = User::create(Arr::except($validated, ['restaurant_name', 'restaurant_description']));
+
+        if (($user->role?->value ?? $user->role) === UserRole::RestaurantOwner->value) {
+            RestaurantRegistration::create([
+                'owner_user_id' => $user->id,
+                'restaurant_name' => trim((string) ($validated['restaurant_name'] ?? '')) ?: "{$user->name}'s Restaurant",
+                'description' => $validated['restaurant_description'] ?? null,
+                'contact_email' => $user->email,
+                'contact_phone' => $user->phone,
+                'status' => 'pending',
+                'payload' => [
+                    'source' => 'auth_register',
+                    'submitted_role' => UserRole::RestaurantOwner->value,
+                ],
+            ]);
+        }
+
         $token = $this->createAccessToken($user, $request->input('device_name', 'default-device'));
 
         return $this->successResponse([
@@ -34,7 +54,8 @@ class AuthController extends Controller
         $query = User::query();
 
         if (!empty($validated['email'])) {
-            $query->where('email', $validated['email']);
+            $email = strtolower(trim((string) $validated['email']));
+            $query->whereRaw('LOWER(email) = ?', [$email]);
         } else {
             $query->where('phone', $validated['phone'] ?? '');
         }
@@ -134,6 +155,9 @@ class AuthController extends Controller
         }
 
         $email = filter_var($googleUser['email'] ?? null, FILTER_VALIDATE_EMAIL);
+        if (is_string($email)) {
+            $email = strtolower(trim($email));
+        }
         $providerId = $googleUser['sub'] ?? null;
         $name = $googleUser['name'] ?? null;
         $avatar = $googleUser['picture'] ?? null;
@@ -173,7 +197,7 @@ class AuthController extends Controller
         }
 
         /** @var User|null $user */
-        $user = User::query()->where('email', $email)->first();
+        $user = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
 
         if ($user) {
             if ($user->status !== 'active') {

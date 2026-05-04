@@ -8,6 +8,17 @@ import CustomerReviews from "./pages/CustomerReviews.jsx";
 import LoyaltyRewards from "./pages/LoyaltyRewards.jsx";
 import AnalyticsInsights from "./pages/AnalyticsInsights.jsx";
 import RestaurantSettings from "./pages/RestaurantSettings.jsx";
+import AdminOverview from "./pages/admin/AdminOverview.jsx";
+import AdminUsers from "./pages/admin/AdminUsers.jsx";
+import AdminCustomers from "./pages/admin/AdminCustomers.jsx";
+import AdminRestaurants from "./pages/admin/AdminRestaurants.jsx";
+import AdminNewRestaurants from "./pages/admin/AdminNewRestaurants.jsx";
+import AdminMenuItems from "./pages/admin/AdminMenuItems.jsx";
+import AdminVideos from "./pages/admin/AdminVideos.jsx";
+import AdminOrders from "./pages/admin/AdminOrders.jsx";
+import AdminReports from "./pages/admin/AdminReports.jsx";
+import AdminDatabase from "./pages/admin/AdminDatabase.jsx";
+import AdminSettings from "./pages/admin/AdminSettings.jsx";
 import { API_BASE_URL, api } from "./lib/api.js";
 
 const pageMap = {
@@ -20,11 +31,41 @@ const pageMap = {
   loyalty: LoyaltyRewards,
   analytics: AnalyticsInsights,
   settings: RestaurantSettings,
+  adminOverview: AdminOverview,
+  adminUsers: AdminUsers,
+  adminCustomers: AdminCustomers,
+  adminRestaurants: AdminRestaurants,
+  adminNewRestaurants: AdminNewRestaurants,
+  adminMenuItems: AdminMenuItems,
+  adminVideos: AdminVideos,
+  adminOrders: AdminOrders,
+  adminReports: AdminReports,
+  adminDatabase: AdminDatabase,
+  adminSettings: AdminSettings,
 };
+
+const ADMIN_PAGE_KEYS = new Set([
+  "adminOverview",
+  "adminUsers",
+  "adminCustomers",
+  "adminRestaurants",
+  "adminNewRestaurants",
+  "adminMenuItems",
+  "adminVideos",
+  "adminOrders",
+  "adminReports",
+  "adminDatabase",
+  "adminSettings",
+]);
 
 const TOKEN_STORAGE_KEY = "hungerrush_api_token";
 const DEFAULT_EMAIL = import.meta.env.VITE_DEMO_EMAIL || "owner@hungerrush.local";
 const DEFAULT_PASSWORD = import.meta.env.VITE_DEMO_PASSWORD || "password";
+const CUSTOMER_ACCESS_DENIED_MESSAGE = "Access denied. Customer accounts cannot sign in to this dashboard.";
+
+function getUserRole(user) {
+  return user?.role?.value || user?.role || "";
+}
 
 function LoginScreen({ loading, error, onLogin }) {
   const [email, setEmail] = useState(DEFAULT_EMAIL);
@@ -41,7 +82,7 @@ function LoginScreen({ loading, error, onLogin }) {
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Connect Dashboard</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
-            Sign in with a restaurant owner account to load live API data.
+            Sign in to load the right dashboard for your account.
           </p>
           <p className="text-xs text-slate-400 mt-2">
             API Base URL: <span className="font-semibold">{API_BASE_URL}</span>
@@ -93,6 +134,38 @@ function LoginScreen({ loading, error, onLogin }) {
   );
 }
 
+function AccessDeniedScreen({ onNavigate, onLogout }) {
+  return (
+    <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-6">
+      <div className="w-full max-w-md rounded-2xl border border-primary/10 bg-white p-8 text-center shadow-xl">
+        <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-xl bg-red-50 text-red-600">
+          <span className="material-symbols-outlined">lock</span>
+        </div>
+        <h1 className="text-2xl font-bold text-slate-900">Access Denied</h1>
+        <p className="mt-2 text-sm text-slate-500">
+          Admin Panel access is limited to users with the admin role.
+        </p>
+        <div className="mt-6 flex justify-center gap-3">
+          <button
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary/90"
+            type="button"
+            onClick={() => onNavigate?.("dashboard")}
+          >
+            Back to Dashboard
+          </button>
+          <button
+            className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-200"
+            type="button"
+            onClick={onLogout}
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [activePage, setActivePage] = useState("dashboard");
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_STORAGE_KEY));
@@ -100,7 +173,13 @@ export default function App() {
   const [isAuthLoading, setIsAuthLoading] = useState(Boolean(localStorage.getItem(TOKEN_STORAGE_KEY)));
   const [authError, setAuthError] = useState("");
 
-  const Page = useMemo(() => pageMap[activePage] ?? DashboardOverview, [activePage]);
+  const userRole = getUserRole(user);
+  const isAdmin = userRole === "admin";
+  const isAdminPage = ADMIN_PAGE_KEYS.has(activePage);
+  const Page = useMemo(
+    () => pageMap[activePage] ?? (isAdmin ? AdminOverview : DashboardOverview),
+    [activePage, isAdmin]
+  );
 
   const withProfilePhoto = async (authToken, baseUser) => {
     try {
@@ -137,7 +216,21 @@ export default function App() {
         if (isCancelled) {
           return;
         }
+
+        if (getUserRole(enrichedUser) === "customer") {
+          localStorage.removeItem(TOKEN_STORAGE_KEY);
+          setToken(null);
+          setUser(null);
+          setAuthError(CUSTOMER_ACCESS_DENIED_MESSAGE);
+          return;
+        }
+
         setUser(enrichedUser);
+        setActivePage((previous) =>
+          getUserRole(enrichedUser) === "admin" && !ADMIN_PAGE_KEYS.has(previous)
+            ? "adminOverview"
+            : previous
+        );
       } catch (error) {
         if (isCancelled) {
           return;
@@ -160,6 +253,14 @@ export default function App() {
     };
   }, [token]);
 
+  useEffect(() => {
+    if (!user) return;
+
+    if (isAdmin && !ADMIN_PAGE_KEYS.has(activePage)) {
+      setActivePage("adminOverview");
+    }
+  }, [activePage, isAdmin, user]);
+
   const handleLogin = async (credentials) => {
     setIsAuthLoading(true);
     setAuthError("");
@@ -173,10 +274,24 @@ export default function App() {
         throw new Error("Login succeeded but no token was returned.");
       }
 
+      if (getUserRole(nextUser) === "customer") {
+        try {
+          await api.logout(nextToken);
+        } catch {
+          // Ignore logout API errors because local session is not kept.
+        }
+        localStorage.removeItem(TOKEN_STORAGE_KEY);
+        setToken(null);
+        setUser(null);
+        setAuthError(CUSTOMER_ACCESS_DENIED_MESSAGE);
+        return;
+      }
+
       localStorage.setItem(TOKEN_STORAGE_KEY, nextToken);
       setToken(nextToken);
       const enrichedUser = await withProfilePhoto(nextToken, nextUser || null);
       setUser(enrichedUser);
+      setActivePage(getUserRole(enrichedUser) === "admin" ? "adminOverview" : "dashboard");
     } catch (error) {
       setAuthError(error?.message || "Unable to sign in.");
     } finally {
@@ -207,6 +322,15 @@ export default function App() {
     setUser((previous) => (previous ? { ...previous, profilePhotoUrl: photoUrl || "" } : previous));
   };
 
+  const handleNavigate = (nextPage) => {
+    if (ADMIN_PAGE_KEYS.has(nextPage) && !isAdmin) {
+      setActivePage("accessDenied");
+      return;
+    }
+
+    setActivePage(nextPage);
+  };
+
   if (isAuthLoading && !user) {
     return (
       <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
@@ -221,10 +345,14 @@ export default function App() {
     return <LoginScreen loading={isAuthLoading} error={authError} onLogin={handleLogin} />;
   }
 
+  if ((isAdminPage && !isAdmin) || activePage === "accessDenied") {
+    return <AccessDeniedScreen onNavigate={handleNavigate} onLogout={handleLogout} />;
+  }
+
   return (
     <div className="min-h-screen">
       <Page
-        onNavigate={setActivePage}
+        onNavigate={handleNavigate}
         token={token}
         user={user}
         onLogout={handleLogout}

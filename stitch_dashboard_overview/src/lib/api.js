@@ -109,14 +109,14 @@ function unwrapList(payload) {
 }
 
 export const api = {
-  async login({ email, phone, password, role = "restaurant_owner", deviceName = "dashboard-web" }) {
+  async login({ email, phone, password, role, deviceName = "dashboard-web" }) {
     const payload = await request("/v1/auth/login", {
       method: "POST",
       body: {
         email: email || undefined,
         phone: phone || undefined,
         password,
-        role,
+        role: role || undefined,
         device_name: deviceName,
       },
     });
@@ -461,6 +461,128 @@ export const api = {
       await request(withQuery("/v1/restaurant/analytics", { period, range_days: rangeDays }), {
         method: "GET",
         token,
+      })
+    );
+  },
+
+  async getCustomerRestaurantMenu(token, restaurantId) {
+    return unwrapData(
+      await request(`/v1/customer/restaurants/${restaurantId}/menu`, {
+        method: "GET",
+        token,
+      })
+    );
+  },
+
+  async getAdminDashboard(token) {
+    return unwrapData(
+      await request("/v1/admin/dashboard", {
+        method: "GET",
+        token,
+      })
+    );
+  },
+
+  async getAdminUsers(token, params = {}) {
+    const payload = await request(withQuery("/v1/admin/users", { page: params.page }), {
+      method: "GET",
+      token,
+    });
+
+    return unwrapList(payload);
+  },
+
+  async getAdminRestaurants(token, params = {}) {
+    const payload = await request(withQuery("/v1/admin/restaurants", { page: params.page }), {
+      method: "GET",
+      token,
+    });
+
+    return unwrapList(payload);
+  },
+
+  async getAdminRestaurantRegistrations(token, params = {}) {
+    const payload = await request(
+      withQuery("/v1/admin/restaurant-registrations", {
+        page: params.page,
+        per_page: params.perPage,
+        q: params.search,
+        status: params.status,
+      }),
+      {
+        method: "GET",
+        token,
+      }
+    );
+
+    return unwrapList(payload);
+  },
+
+  async updateAdminRestaurantRegistration(token, registrationId, body) {
+    return unwrapData(
+      await request(`/v1/admin/restaurant-registrations/${registrationId}`, {
+        method: "PATCH",
+        token,
+        body,
+      })
+    );
+  },
+
+  async getAdminVideos(token, params = {}) {
+    const payload = await request(
+      withQuery("/v1/admin/videos", {
+        page: params.page,
+        per_page: params.perPage,
+        q: params.search,
+        restaurant_id: params.restaurantId,
+        status: params.status,
+        stream_state: params.streamState,
+        created_from: params.createdFrom,
+        created_to: params.createdTo,
+      }),
+      {
+        method: "GET",
+        token,
+      }
+    );
+
+    return unwrapList(payload);
+  },
+
+  async getAdminOrders(token, params = {}) {
+    const payload = await request(withQuery("/v1/admin/orders", { page: params.page }), {
+      method: "GET",
+      token,
+    });
+
+    return unwrapList(payload);
+  },
+
+  async updateAdminOrder(token, orderId, body) {
+    return unwrapData(
+      await request(`/v1/admin/orders/${orderId}`, {
+        method: "PATCH",
+        token,
+        body,
+      })
+    );
+  },
+
+  async getAdminReports(token, params = {}) {
+    const payload = await request(withQuery("/v1/admin/reports", { page: params.page }), {
+      method: "GET",
+      token,
+    });
+
+    return unwrapList(payload);
+  },
+
+  async updateAdminReport(token, reportId, body) {
+    return unwrapData(
+      await request(`/v1/admin/reports/${reportId}`, {
+        method: "PATCH",
+        token,
+        body,
       })
     );
   },

@@ -21,4 +21,21 @@ class LoginRequest extends FormRequest
             'device_name' => ['nullable', 'string', 'max:120'],
         ];
     }
+
+    protected function prepareForValidation(): void
+    {
+        $email = $this->input('email');
+        if (is_string($email)) {
+            $this->merge([
+                'email' => strtolower(trim($email)),
+            ]);
+        }
+
+        $phone = $this->input('phone');
+        if (is_string($phone)) {
+            $this->merge([
+                'phone' => trim($phone),
+            ]);
+        }
+    }
 }

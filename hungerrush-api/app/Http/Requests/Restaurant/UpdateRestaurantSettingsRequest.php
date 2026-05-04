@@ -50,4 +50,21 @@ class UpdateRestaurantSettingsRequest extends FormRequest
             'locations.*.longitude' => ['nullable', 'numeric', 'between:-180,180'],
         ];
     }
+
+    protected function prepareForValidation(): void
+    {
+        $ownerEmail = $this->input('owner_email');
+        if (is_string($ownerEmail)) {
+            $this->merge([
+                'owner_email' => strtolower(trim($ownerEmail)),
+            ]);
+        }
+
+        $ownerPhone = $this->input('owner_phone');
+        if (is_string($ownerPhone)) {
+            $this->merge([
+                'owner_phone' => trim($ownerPhone),
+            ]);
+        }
+    }
 }
