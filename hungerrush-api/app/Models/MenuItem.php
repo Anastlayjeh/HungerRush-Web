@@ -31,4 +31,14 @@ class MenuItem extends Model
     {
         return $this->hasMany(Video::class);
     }
+
+    public function orderItems(): HasMany
+    {
+        return $this->hasMany(OrderItem::class);
+    }
+
+    public function cartItems(): HasMany
+    {
+        return $this->hasMany(CartItem::class);
+    }
 }

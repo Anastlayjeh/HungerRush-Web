@@ -16,7 +16,7 @@ class CartController extends Controller
     public function show()
     {
         $cart = $this->resolveCart();
-        $cart->load('items.menuItem');
+        $cart->load(['restaurant.branches', 'items.menuItem.category']);
 
         return $this->successResponse(new CartResource($cart));
     }
@@ -26,6 +26,14 @@ class CartController extends Controller
         $validated = $request->validated();
         $menuItem = MenuItem::with('category')->findOrFail($validated['menu_item_id']);
         $cart = $this->resolveCart();
+
+        if (!$menuItem->is_available) {
+            return $this->errorResponse(
+                'This menu item is currently unavailable.',
+                ['menu_item_id' => ['Please choose another available item.']],
+                'item_unavailable'
+            );
+        }
 
         if ($cart->restaurant_id !== null && $cart->restaurant_id !== $menuItem->category->restaurant_id) {
             return $this->errorResponse(
@@ -47,7 +55,7 @@ class CartController extends Controller
         $item->notes = $validated['notes'] ?? $item->notes;
         $item->save();
 
-        return $this->successResponse(new CartItemResource($item->load('menuItem')), message: 'Item added to cart.');
+        return $this->successResponse(new CartItemResource($item->load('menuItem.category')), message: 'Item added to cart.');
     }
 
     public function updateItem(UpdateCartItemRequest $request, CartItem $cartItem)
@@ -56,7 +64,7 @@ class CartController extends Controller
         abort_unless($cartItem->cart_id === $cart->id, 404);
         $cartItem->update($request->validated());
 
-        return $this->successResponse(new CartItemResource($cartItem->refresh()->load('menuItem')), message: 'Cart item updated.');
+        return $this->successResponse(new CartItemResource($cartItem->refresh()->load('menuItem.category')), message: 'Cart item updated.');
     }
 
     public function removeItem(CartItem $cartItem)

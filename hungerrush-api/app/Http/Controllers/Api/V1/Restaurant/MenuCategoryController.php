@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Restaurant;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\MenuCategoryResource;
 use App\Http\Requests\Restaurant\StoreMenuCategoryRequest;
 use App\Http\Requests\Restaurant\UpdateMenuCategoryRequest;
 use App\Models\MenuCategory;
@@ -13,9 +14,12 @@ class MenuCategoryController extends Controller
     public function index()
     {
         $restaurant = $this->resolveRestaurant();
-        $categories = $restaurant->categories()->orderBy('sort_order')->get();
+        $categories = $restaurant->categories()
+            ->with(['items' => fn ($query) => $query->with('category')->withCount('orderItems')->orderBy('name')])
+            ->orderBy('sort_order')
+            ->get();
 
-        return $this->successResponse($categories);
+        return $this->successResponse(MenuCategoryResource::collection($categories));
     }
 
     public function store(StoreMenuCategoryRequest $request)

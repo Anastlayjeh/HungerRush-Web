@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Restaurant;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\OrderResource;
 use App\Http\Requests\Restaurant\StoreQuickOrderRequest;
 use App\Http\Requests\Restaurant\UpdateOrderStatusRequest;
 use App\Models\MenuItem;
@@ -14,6 +15,7 @@ use App\Models\OrderStatusHistory;
 use App\Models\Restaurant;
 use App\Models\RestaurantBranch;
 use App\Models\User;
+use App\Models\UserNotification;
 use App\Services\OrderStatusTransitionService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -28,12 +30,14 @@ class OrderController extends Controller
             ->where('restaurant_id', $restaurant->id)
             ->with([
                 'customer:id,name,email,phone',
+                'restaurant.branches',
                 'branch:id,name,address',
+                'items.menuItem.category',
             ])
             ->latest('id')
             ->paginate(15);
 
-        return $this->successResponse($orders->items(), [
+        return $this->successResponse(OrderResource::collection($orders->items()), [
             'current_page' => $orders->currentPage(),
             'per_page' => $orders->perPage(),
             'total' => $orders->total(),
@@ -45,12 +49,13 @@ class OrderController extends Controller
         $this->authorize('view', $order);
         $order->load([
             'customer:id,name,email,phone',
+            'restaurant.branches',
             'branch:id,name,address',
-            'items.menuItem:id,name,description,price,image_urls',
+            'items.menuItem.category',
             'statusHistory',
         ]);
 
-        return $this->successResponse($order);
+        return $this->successResponse(new OrderResource($order));
     }
 
     public function updateStatus(UpdateOrderStatusRequest $request, Order $order, OrderStatusTransitionService $transitionService)
@@ -74,7 +79,15 @@ class OrderController extends Controller
             'changed_at' => now(),
         ]);
 
-        return $this->successResponse($order->refresh(), message: 'Order status updated.');
+        UserNotification::create([
+            'user_id' => $order->customer_id,
+            'type' => 'order_status',
+            'title' => 'Order status updated',
+            'body' => "Order #{$order->id} is now {$targetStatus->value}.",
+            'data' => ['order_id' => $order->id, 'status' => $targetStatus->value],
+        ]);
+
+        return $this->successResponse(new OrderResource($order->refresh()->load(['customer:id,name,email,phone', 'restaurant.branches', 'branch', 'items.menuItem.category', 'statusHistory'])), message: 'Order status updated.');
     }
 
     public function storeQuickOrder(StoreQuickOrderRequest $request)
@@ -172,7 +185,7 @@ class OrderController extends Controller
         });
 
         return $this->successResponse(
-            $order->load(['items.menuItem']),
+            new OrderResource($order->load(['customer:id,name,email,phone', 'restaurant.branches', 'branch', 'items.menuItem.category', 'statusHistory'])),
             message: 'Quick order created successfully.',
             status: 201
         );

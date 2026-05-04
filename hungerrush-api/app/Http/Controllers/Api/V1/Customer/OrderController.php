@@ -11,6 +11,7 @@ use App\Models\Cart;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderStatusHistory;
+use App\Models\UserNotification;
 use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
@@ -20,6 +21,11 @@ class OrderController extends Controller
         $cart = Cart::with('items.menuItem')->where('customer_id', auth()->id())->firstOrFail();
         abort_if($cart->items->isEmpty(), 422, 'Cart is empty.');
         abort_if($cart->restaurant_id === null, 422, 'Cart restaurant is missing.');
+        abort_if(
+            $cart->items->contains(fn ($item) => !$item->menuItem?->is_available),
+            422,
+            'Cart contains unavailable menu items.'
+        );
 
         $order = DB::transaction(function () use ($cart, $request) {
             $subtotal = 0;
@@ -63,19 +69,32 @@ class OrderController extends Controller
             return $order;
         });
 
-        return $this->successResponse(new OrderResource($order->load('items.menuItem')), message: 'Order placed successfully.', status: 201);
+        UserNotification::create([
+            'user_id' => auth()->id(),
+            'type' => 'order',
+            'title' => 'Order placed',
+            'body' => "Order #{$order->id} was placed successfully.",
+            'data' => ['order_id' => $order->id],
+        ]);
+
+        return $this->successResponse(
+            new OrderResource($order->load(['restaurant.branches', 'branch', 'items.menuItem.category', 'statusHistory'])),
+            message: 'Order placed successfully.',
+            status: 201
+        );
     }
 
     public function show(Order $order)
     {
         abort_unless($order->customer_id === auth()->id(), 404);
-        return $this->successResponse(new OrderResource($order->load(['items.menuItem', 'statusHistory'])));
+        return $this->successResponse(new OrderResource($order->load(['restaurant.branches', 'branch', 'items.menuItem.category', 'statusHistory'])));
     }
 
     public function history()
     {
         $orders = Order::query()
             ->where('customer_id', auth()->id())
+            ->with(['restaurant.branches', 'branch', 'items.menuItem.category'])
             ->latest()
             ->paginate(20);
 

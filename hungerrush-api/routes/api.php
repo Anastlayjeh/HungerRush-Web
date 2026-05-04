@@ -1,11 +1,11 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Api\V1\ConversationController;
 use App\Http\Controllers\Api\V1\Customer\CartController;
 use App\Http\Controllers\Api\V1\Customer\OrderController as CustomerOrderController;
-use App\Http\Controllers\Api\V1\Customer\RestaurantFollowController;
 use App\Http\Controllers\Api\V1\Customer\RestaurantController as CustomerRestaurantController;
-use App\Http\Controllers\Api\V1\Customer\VideoFeedController;
 use App\Http\Controllers\Api\V1\Restaurant\AnalyticsController;
 use App\Http\Controllers\Api\V1\Restaurant\LoyaltyController;
 use App\Http\Controllers\Api\V1\Restaurant\MenuCategoryController;
@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\V1\Restaurant\ReviewController;
 use App\Http\Controllers\Api\V1\Restaurant\SettingsController;
 use App\Http\Controllers\Api\V1\Restaurant\VideoAssetUploadController;
 use App\Http\Controllers\Api\V1\Restaurant\VideoController;
+use App\Http\Controllers\Api\V1\SupportRequestController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/google', [AuthController::class, 'google']);
@@ -42,6 +43,30 @@ Route::prefix('v1')->group(function () {
         Route::middleware('auth:sanctum')->group(function () {
             Route::post('/logout', [AuthController::class, 'logout']);
             Route::get('/me', [AuthController::class, 'me']);
+        });
+    });
+
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/conversations', [ConversationController::class, 'index']);
+        Route::post('/conversations', [ConversationController::class, 'store']);
+        Route::get('/conversations/{conversation}', [ConversationController::class, 'show']);
+        Route::post('/conversations/{conversation}/messages', [ConversationController::class, 'sendMessage']);
+        Route::patch('/conversations/{conversation}/read', [ConversationController::class, 'markRead']);
+
+        Route::get('/notifications', [NotificationController::class, 'index']);
+        Route::patch('/notifications/read-all', [NotificationController::class, 'markAllRead']);
+        Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
+
+        Route::post('/support-requests', [SupportRequestController::class, 'store']);
+        Route::post('/reports', [ReportController::class, 'store']);
+
+        Route::prefix('admin')->group(function () {
+            Route::get('/dashboard', [AdminDashboardController::class, 'dashboard']);
+            Route::get('/users', [AdminDashboardController::class, 'users']);
+            Route::get('/restaurants', [AdminDashboardController::class, 'restaurants']);
+            Route::get('/orders', [AdminDashboardController::class, 'orders']);
+            Route::get('/reports', [AdminDashboardController::class, 'reports']);
+            Route::patch('/reports/{report}', [AdminDashboardController::class, 'updateReport']);
         });
     });
 
@@ -87,18 +112,6 @@ Route::prefix('v1')->group(function () {
     });
 
     Route::prefix('customer')->middleware('auth:sanctum')->group(function () {
-        Route::get('/videos/feed', [VideoFeedController::class, 'index']);
-        Route::post('/videos/searches', [VideoFeedController::class, 'storeSearch']);
-        Route::post('/videos/{video}/engagements', [VideoFeedController::class, 'storeEngagement']);
-        Route::delete('/videos/{video}/engagements/{type}', [VideoFeedController::class, 'destroyEngagement'])
-            ->where('type', 'like|save');
-        Route::get('/videos/{video}/comments', [VideoFeedController::class, 'comments']);
-        Route::post('/videos/{video}/comments', [VideoFeedController::class, 'storeComment']);
-
-        Route::get('/restaurants/following', [RestaurantFollowController::class, 'index']);
-        Route::post('/restaurants/{restaurant}/follow', [RestaurantFollowController::class, 'store']);
-        Route::delete('/restaurants/{restaurant}/follow', [RestaurantFollowController::class, 'destroy']);
-
         Route::get('/restaurants', [CustomerRestaurantController::class, 'index']);
         Route::get('/restaurants/{restaurant}', [CustomerRestaurantController::class, 'show']);
         Route::get('/restaurants/{restaurant}/menu', [CustomerRestaurantController::class, 'menu']);

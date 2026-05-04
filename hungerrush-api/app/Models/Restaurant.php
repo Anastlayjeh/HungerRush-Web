@@ -68,6 +68,16 @@ class Restaurant extends Model
         return $this->hasMany(LoyaltyMember::class);
     }
 
+    public function conversations(): HasMany
+    {
+        return $this->hasMany(Conversation::class);
+    }
+
+    public function reports(): HasMany
+    {
+        return $this->hasMany(Report::class);
+    }
+
     public function menuItems(): HasManyThrough
     {
         return $this->hasManyThrough(MenuItem::class, MenuCategory::class, 'restaurant_id', 'category_id');
