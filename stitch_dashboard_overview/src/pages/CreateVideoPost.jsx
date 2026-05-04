@@ -3,6 +3,8 @@ import RestaurantShell from "../components/RestaurantShell.jsx";
 import { api } from "../lib/api.js";
 import { bg } from "../utils/bg.js";
 
+const MAX_VIDEO_SIZE_BYTES = 200 * 1024 * 1024;
+
 function initialForm() {
   return {
     title: "",
@@ -19,9 +21,7 @@ export default function CreateVideoPost({ onNavigate, token, user, onLogout }) {
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [videoFile, setVideoFile] = useState(null);
-  const [thumbnailFile, setThumbnailFile] = useState(null);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState("");
-  const [thumbnailPreviewUrl, setThumbnailPreviewUrl] = useState("");
 
   useEffect(() => {
     if (!token) {
@@ -68,27 +68,12 @@ export default function CreateVideoPost({ onNavigate, token, user, onLogout }) {
     };
   }, [videoFile]);
 
-  useEffect(() => {
-    if (!thumbnailFile) {
-      setThumbnailPreviewUrl("");
-      return undefined;
-    }
-
-    const objectUrl = URL.createObjectURL(thumbnailFile);
-    setThumbnailPreviewUrl(objectUrl);
-
-    return () => {
-      URL.revokeObjectURL(objectUrl);
-    };
-  }, [thumbnailFile]);
-
   const selectedMenuItem = useMemo(
     () => menuItems.find((item) => String(item.id) === form.menuItemId) || null,
     [menuItems, form.menuItemId]
   );
 
   const previewThumbnail =
-    thumbnailPreviewUrl ||
     "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=900&q=80";
 
   const createVideo = async (status) => {
@@ -97,44 +82,33 @@ export default function CreateVideoPost({ onNavigate, token, user, onLogout }) {
       return;
     }
 
+    if (videoFile.size > MAX_VIDEO_SIZE_BYTES) {
+      setError("The selected video is larger than 200 MB. Choose a smaller file.");
+      return;
+    }
+
     setSaving(true);
     setError("");
     setSuccessMessage("");
     try {
-      const uploadedVideo = await api.uploadVideoAsset(token, {
-        assetType: "video",
-        file: videoFile,
-      });
-      const mediaUrl = String(uploadedVideo?.url || "").trim();
-      if (!mediaUrl) {
-        throw new Error("Video upload failed. Please try again.");
+      const body = new FormData();
+      body.append("title", form.title.trim());
+      body.append("video", videoFile);
+      body.append("status", status);
+
+      if (form.description.trim()) {
+        body.append("description", form.description.trim());
       }
 
-      let thumbnailUrl;
-      if (thumbnailFile) {
-        const uploadedThumbnail = await api.uploadVideoAsset(token, {
-          assetType: "thumbnail",
-          file: thumbnailFile,
-        });
-        thumbnailUrl = String(uploadedThumbnail?.url || "").trim() || undefined;
-        if (!thumbnailUrl) {
-          throw new Error("Thumbnail upload failed. Please try again.");
-        }
+      if (form.menuItemId) {
+        body.append("menu_item_id", form.menuItemId);
       }
 
-      await api.createVideo(token, {
-        title: form.title.trim(),
-        description: form.description.trim() || undefined,
-        media_url: mediaUrl,
-        thumbnail_url: thumbnailUrl,
-        menu_item_id: form.menuItemId ? Number(form.menuItemId) : null,
-        status,
-      });
+      await api.createVideo(token, body);
 
       setSuccessMessage(status === "published" ? "Video published successfully." : "Draft saved.");
       setForm(initialForm());
       setVideoFile(null);
-      setThumbnailFile(null);
       window.setTimeout(() => onNavigate?.("videos"), 600);
     } catch (requestError) {
       setError(requestError?.message || "Failed to create video.");
@@ -229,33 +203,23 @@ export default function CreateVideoPost({ onNavigate, token, user, onLogout }) {
                   className="w-full p-3 bg-slate-50 border-slate-200 rounded-xl focus:ring-primary/50 focus:border-primary file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-primary file:text-white file:text-xs file:font-semibold hover:file:bg-primary/90"
                   type="file"
                   accept="video/mp4,video/quicktime,video/webm,video/x-msvideo,video/mpeg,video/x-m4v"
-                  onChange={(event) => setVideoFile(event.target.files?.[0] || null)}
+                  onChange={(event) => {
+                    const nextFile = event.target.files?.[0] || null;
+                    setVideoFile(nextFile);
+                    setError("");
+                  }}
                 />
                 <p className="mt-1 text-xs text-slate-500">
                   {videoFile ? `Selected: ${videoFile.name}` : "Select a video from your computer."}
                 </p>
+                <p className="mt-2 text-xs text-slate-500">
+                  The server accepts food-related videos only, up to 3 minutes long, then uploads them to Cloudflare Stream.
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Supported formats: MP4, MOV, WEBM, M4V, AVI, MPEG, MPG. Maximum file size: 200 MB.
+                </p>
                 {videoPreviewUrl ? (
                   <video className="mt-3 w-full rounded-xl border border-slate-200" controls src={videoPreviewUrl}></video>
-                ) : null}
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold mb-2">Thumbnail Photo (Optional)</label>
-                <input
-                  className="w-full p-3 bg-slate-50 border-slate-200 rounded-xl focus:ring-primary/50 focus:border-primary file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-primary file:text-white file:text-xs file:font-semibold hover:file:bg-primary/90"
-                  type="file"
-                  accept="image/png,image/jpeg,image/jpg,image/webp"
-                  onChange={(event) => setThumbnailFile(event.target.files?.[0] || null)}
-                />
-                <p className="mt-1 text-xs text-slate-500">
-                  {thumbnailFile ? `Selected: ${thumbnailFile.name}` : "Select an image from your computer."}
-                </p>
-                {thumbnailPreviewUrl ? (
-                  <img
-                    alt="Thumbnail preview"
-                    className="mt-3 h-36 w-full object-cover rounded-xl border border-slate-200"
-                    src={thumbnailPreviewUrl}
-                  />
                 ) : null}
               </div>
 

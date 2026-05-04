@@ -5,10 +5,7 @@ use App\Http\Controllers\Api\V1\Admin\DashboardController as AdminDashboardContr
 use App\Http\Controllers\Api\V1\ConversationController;
 use App\Http\Controllers\Api\V1\Customer\CartController;
 use App\Http\Controllers\Api\V1\Customer\OrderController as CustomerOrderController;
-use App\Http\Controllers\Api\V1\Customer\ProfileController as CustomerProfileController;
 use App\Http\Controllers\Api\V1\Customer\RestaurantController as CustomerRestaurantController;
-use App\Http\Controllers\Api\V1\NotificationController;
-use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\Restaurant\AnalyticsController;
 use App\Http\Controllers\Api\V1\Restaurant\LoyaltyController;
 use App\Http\Controllers\Api\V1\Restaurant\MenuCategoryController;
@@ -115,9 +112,6 @@ Route::prefix('v1')->group(function () {
     });
 
     Route::prefix('customer')->middleware('auth:sanctum')->group(function () {
-        Route::get('/profile', [CustomerProfileController::class, 'show']);
-        Route::patch('/profile', [CustomerProfileController::class, 'update']);
-
         Route::get('/restaurants', [CustomerRestaurantController::class, 'index']);
         Route::get('/restaurants/{restaurant}', [CustomerRestaurantController::class, 'show']);
         Route::get('/restaurants/{restaurant}/menu', [CustomerRestaurantController::class, 'menu']);

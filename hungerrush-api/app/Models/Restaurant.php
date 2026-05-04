@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Restaurant extends Model
 {
@@ -80,5 +81,15 @@ class Restaurant extends Model
     public function menuItems(): HasManyThrough
     {
         return $this->hasManyThrough(MenuItem::class, MenuCategory::class, 'restaurant_id', 'category_id');
+    }
+
+    public function follows(): HasMany
+    {
+        return $this->hasMany(RestaurantFollow::class);
+    }
+
+    public function followers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'restaurant_follows')->withTimestamps();
     }
 }

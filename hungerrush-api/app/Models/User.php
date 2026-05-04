@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -77,5 +78,25 @@ class User extends Authenticatable
     public function appNotifications(): HasMany
     {
         return $this->hasMany(UserNotification::class);
+    }
+
+    public function customerSearches(): HasMany
+    {
+        return $this->hasMany(CustomerSearch::class);
+    }
+
+    public function restaurantFollows(): HasMany
+    {
+        return $this->hasMany(RestaurantFollow::class);
+    }
+
+    public function followedRestaurants(): BelongsToMany
+    {
+        return $this->belongsToMany(Restaurant::class, 'restaurant_follows')->withTimestamps();
+    }
+
+    public function videoComments(): HasMany
+    {
+        return $this->hasMany(VideoComment::class);
     }
 }

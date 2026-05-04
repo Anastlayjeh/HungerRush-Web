@@ -26,11 +26,17 @@ class VideoFactory extends Factory
             'menu_item_id' => MenuItem::factory(),
             'title' => fake()->sentence(4),
             'description' => fake()->sentence(),
-            'media_url' => fake()->url(),
+            'media_url' => 'https://customer-example.cloudflarestream.com/' . fake()->uuid() . '/manifest/video.m3u8',
             'thumbnail_url' => fake()->imageUrl(720, 1280),
+            'cloudflare_stream_uid' => fake()->regexify('[a-f0-9]{32}'),
+            'duration_seconds' => fake()->numberBetween(8, 180),
+            'stream_status' => 'ready',
+            'stream_ready' => true,
+            'stream_hls_url' => 'https://customer-example.cloudflarestream.com/' . fake()->uuid() . '/manifest/video.m3u8',
+            'stream_dash_url' => 'https://customer-example.cloudflarestream.com/' . fake()->uuid() . '/manifest/video.mpd',
+            'stream_preview_url' => 'https://customer-example.cloudflarestream.com/' . fake()->uuid() . '/watch',
             'status' => $status,
             'published_at' => $status === 'published' ? now()->subDays(fake()->numberBetween(1, 30)) : null,
         ];
     }
 }
-

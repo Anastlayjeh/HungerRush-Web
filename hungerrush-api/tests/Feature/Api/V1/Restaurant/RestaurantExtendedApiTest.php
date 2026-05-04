@@ -12,6 +12,8 @@ use App\Models\Review;
 use App\Models\User;
 use App\Models\Video;
 use App\Models\VideoEngagement;
+use App\Services\CloudflareStreamService;
+use App\Services\RestaurantVideoIngestionService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -106,19 +108,52 @@ class RestaurantExtendedApiTest extends TestCase
         $restaurant = Restaurant::factory()->create(['owner_user_id' => $owner->id]);
         $category = MenuCategory::factory()->create(['restaurant_id' => $restaurant->id]);
         $menuItem = MenuItem::factory()->create(['category_id' => $category->id]);
+        $streamService = new class extends CloudflareStreamService
+        {
+            public array $deleted = [];
+
+            public function delete(string $uid): void
+            {
+                $this->deleted[] = $uid;
+            }
+        };
+
+        $this->app->instance(RestaurantVideoIngestionService::class, new class extends RestaurantVideoIngestionService
+        {
+            public function __construct()
+            {
+            }
+
+            public function ingest(UploadedFile $videoFile, Restaurant $restaurant): array
+            {
+                return [
+                    'media_url' => 'https://customer-example.cloudflarestream.com/9f3d8f11db3644d49be4f48fd3ab67f1/manifest/video.m3u8',
+                    'thumbnail_url' => 'https://customer-example.cloudflarestream.com/9f3d8f11db3644d49be4f48fd3ab67f1/thumbnails/thumbnail.jpg',
+                    'cloudflare_stream_uid' => '9f3d8f11db3644d49be4f48fd3ab67f1',
+                    'duration_seconds' => 42,
+                    'stream_status' => 'ready',
+                    'stream_ready' => true,
+                    'stream_hls_url' => 'https://customer-example.cloudflarestream.com/9f3d8f11db3644d49be4f48fd3ab67f1/manifest/video.m3u8',
+                    'stream_dash_url' => 'https://customer-example.cloudflarestream.com/9f3d8f11db3644d49be4f48fd3ab67f1/manifest/video.mpd',
+                    'stream_preview_url' => 'https://customer-example.cloudflarestream.com/9f3d8f11db3644d49be4f48fd3ab67f1/watch',
+                ];
+            }
+        });
+        $this->app->instance(CloudflareStreamService::class, $streamService);
 
         $createResponse = $this->actingAs($owner, 'sanctum')
-            ->postJson('/api/v1/restaurant/videos', [
+            ->post('/api/v1/restaurant/videos', [
                 'menu_item_id' => $menuItem->id,
                 'title' => 'Burger Build',
                 'description' => 'How we build the signature burger.',
-                'media_url' => 'https://example.com/video.mp4',
-                'thumbnail_url' => 'https://example.com/thumb.jpg',
+                'video' => UploadedFile::fake()->create('burger-build.mp4', 2048, 'video/mp4'),
                 'status' => 'draft',
             ]);
 
         $createResponse->assertCreated()
-            ->assertJsonPath('data.title', 'Burger Build');
+            ->assertJsonPath('data.title', 'Burger Build')
+            ->assertJsonPath('data.stream_uid', '9f3d8f11db3644d49be4f48fd3ab67f1')
+            ->assertJsonPath('data.media_url', 'https://customer-example.cloudflarestream.com/9f3d8f11db3644d49be4f48fd3ab67f1/manifest/video.m3u8');
 
         $videoId = $createResponse->json('data.id');
 
@@ -138,6 +173,8 @@ class RestaurantExtendedApiTest extends TestCase
             ->deleteJson("/api/v1/restaurant/videos/{$videoId}")
             ->assertOk()
             ->assertJsonPath('data.deleted', true);
+
+        $this->assertSame(['9f3d8f11db3644d49be4f48fd3ab67f1'], $streamService->deleted);
     }
 
     public function test_restaurant_owner_can_create_quick_order(): void
