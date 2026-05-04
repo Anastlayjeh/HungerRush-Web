@@ -6,10 +6,12 @@ use App\Models\User;
 use App\Models\Video;
 use App\Services\CloudflareStreamService;
 use App\Services\RestaurantVideoIngestionService;
+use App\Services\VideoStreamStatusSyncService;
 use Illuminate\Foundation\Inspiring;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Str;
 use Symfony\Component\Console\Command\Command;
 
@@ -57,7 +59,7 @@ Artisan::command(
             ['email' => $ownerEmail],
             [
                 'name' => 'Pipeline Tester',
-                'phone' => '01' . str_pad((string) random_int(0, 999999999), 9, '0', STR_PAD_LEFT),
+                'phone' => '01'.str_pad((string) random_int(0, 999999999), 9, '0', STR_PAD_LEFT),
                 'password' => Hash::make(Str::random(32)),
                 'role' => UserRole::RestaurantOwner,
                 'status' => 'active',
@@ -84,7 +86,7 @@ Artisan::command(
 
         try {
             $result = app(RestaurantVideoIngestionService::class)->ingestWithReport($uploadedFile, $restaurant);
-        } catch (\Throwable $throwable) {
+        } catch (Throwable $throwable) {
             $this->error($throwable->getMessage());
 
             return Command::FAILURE;
@@ -131,8 +133,8 @@ Artisan::command(
 
                 $video->delete();
                 $this->info('Cleanup completed: removed the video record and Cloudflare asset.');
-            } catch (\Throwable $throwable) {
-                $this->error('The pipeline succeeded, but cleanup failed: ' . $throwable->getMessage());
+            } catch (Throwable $throwable) {
+                $this->error('The pipeline succeeded, but cleanup failed: '.$throwable->getMessage());
 
                 return Command::FAILURE;
             }
@@ -143,3 +145,14 @@ Artisan::command(
         return Command::SUCCESS;
     }
 )->purpose('Run the real ffmpeg + Hugging Face + Cloudflare Stream pipeline against a local file');
+
+Artisan::command('videos:sync-stream-statuses {--limit=25}', function () {
+    $limit = max(1, min(100, (int) $this->option('limit')));
+    $count = app(VideoStreamStatusSyncService::class)->syncPendingVideos($limit);
+
+    $this->info("Synced {$count} pending video stream status record(s).");
+
+    return Command::SUCCESS;
+})->purpose('Sync Cloudflare Stream status and auto-publish ready draft videos');
+
+Schedule::command('videos:sync-stream-statuses')->everyMinute();
