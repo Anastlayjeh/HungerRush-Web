@@ -63,4 +63,19 @@ class User extends Authenticatable
     {
         return $this->hasMany(LoyaltyMember::class, 'customer_id');
     }
+
+    public function conversations(): HasMany
+    {
+        return $this->hasMany(Conversation::class, 'customer_id');
+    }
+
+    public function conversationMessages(): HasMany
+    {
+        return $this->hasMany(ConversationMessage::class, 'sender_id');
+    }
+
+    public function appNotifications(): HasMany
+    {
+        return $this->hasMany(UserNotification::class);
+    }
 }

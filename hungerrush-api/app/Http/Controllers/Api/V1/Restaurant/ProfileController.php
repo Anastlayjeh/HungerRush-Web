@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Restaurant;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\RestaurantResource;
 use App\Http\Requests\Restaurant\UpdateRestaurantProfileRequest;
 use App\Models\Restaurant;
 
@@ -12,8 +13,11 @@ class ProfileController extends Controller
     {
         $restaurant = $this->resolveRestaurant();
         $this->authorize('view', $restaurant);
+        $restaurant->load(['owner:id,name,email,phone', 'branches'])
+            ->loadCount(['orders', 'reviews', 'menuItems'])
+            ->loadAvg('reviews', 'rating');
 
-        return $this->successResponse($restaurant);
+        return $this->successResponse(new RestaurantResource($restaurant));
     }
 
     public function update(UpdateRestaurantProfileRequest $request)
@@ -21,8 +25,16 @@ class ProfileController extends Controller
         $restaurant = $this->resolveRestaurant();
         $this->authorize('update', $restaurant);
         $restaurant->update($request->validated());
+        $restaurant->load(['owner:id,name,email,phone', 'branches'])
+            ->loadCount(['orders', 'reviews', 'menuItems'])
+            ->loadAvg('reviews', 'rating');
 
-        return $this->successResponse($restaurant->refresh(), message: 'Restaurant profile updated.');
+        $restaurant->refresh()
+            ->load(['owner:id,name,email,phone', 'branches'])
+            ->loadCount(['orders', 'reviews', 'menuItems'])
+            ->loadAvg('reviews', 'rating');
+
+        return $this->successResponse(new RestaurantResource($restaurant), message: 'Restaurant profile updated.');
     }
 
     private function resolveRestaurant(): Restaurant

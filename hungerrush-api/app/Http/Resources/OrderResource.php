@@ -20,6 +20,21 @@ class OrderResource extends JsonResource
             'status' => $this->status?->value ?? $this->status,
             'payment_status' => $this->payment_status?->value ?? $this->payment_status,
             'is_quick_order' => (bool) $this->is_quick_order,
+            'created_at' => optional($this->created_at)->toISOString(),
+            'updated_at' => optional($this->updated_at)->toISOString(),
+            'customer' => $this->whenLoaded('customer', fn () => [
+                'id' => $this->customer?->id,
+                'name' => $this->customer?->name,
+                'email' => $this->customer?->email,
+                'phone' => $this->customer?->phone,
+            ]),
+            'restaurant' => new RestaurantResource($this->whenLoaded('restaurant')),
+            'branch' => $this->whenLoaded('branch', fn () => $this->branch ? [
+                'id' => $this->branch->id,
+                'name' => $this->branch->name,
+                'address' => $this->branch->address,
+                'phone' => $this->branch->phone,
+            ] : null),
             'items' => $this->whenLoaded('items', function () {
                 return $this->items->map(fn ($item) => [
                     'id' => $item->id,
@@ -29,6 +44,14 @@ class OrderResource extends JsonResource
                     'notes' => $item->notes,
                     'menu_item' => $item->relationLoaded('menuItem') ? new MenuItemResource($item->menuItem) : null,
                 ]);
+            }),
+            'status_history' => $this->whenLoaded('statusHistory', function () {
+                return $this->statusHistory->map(fn ($history) => [
+                    'id' => $history->id,
+                    'status' => $history->status?->value ?? $history->status,
+                    'changed_by' => $history->changed_by,
+                    'changed_at' => optional($history->changed_at)->toISOString(),
+                ])->values();
             }),
         ];
     }

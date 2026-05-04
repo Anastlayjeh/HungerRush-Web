@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Restaurant;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\MenuItemResource;
 use App\Http\Requests\Restaurant\StoreMenuItemRequest;
 use App\Http\Requests\Restaurant\UpdateMenuItemAvailabilityRequest;
 use App\Http\Requests\Restaurant\UpdateMenuItemRequest;
@@ -18,10 +19,12 @@ class MenuItemController extends Controller
         $restaurant = $this->resolveRestaurant();
         $items = MenuItem::query()
             ->whereHas('category', fn ($query) => $query->where('restaurant_id', $restaurant->id))
+            ->with('category')
+            ->withCount('orderItems')
             ->orderByDesc('id')
             ->get();
 
-        return $this->successResponse($items);
+        return $this->successResponse(MenuItemResource::collection($items));
     }
 
     public function store(StoreMenuItemRequest $request)
@@ -39,7 +42,7 @@ class MenuItemController extends Controller
 
         $item = MenuItem::create($validated);
 
-        return $this->successResponse($item, message: 'Menu item created.', status: 201);
+        return $this->successResponse(new MenuItemResource($item->load('category')), message: 'Menu item created.', status: 201);
     }
 
     public function update(UpdateMenuItemRequest $request, MenuItem $menuItem)
@@ -76,7 +79,7 @@ class MenuItemController extends Controller
             $this->cleanupEmptyCategory($originalCategoryId);
         }
 
-        return $this->successResponse($menuItem->refresh(), message: 'Menu item updated.');
+        return $this->successResponse(new MenuItemResource($menuItem->refresh()->load('category')), message: 'Menu item updated.');
     }
 
     public function updateAvailability(UpdateMenuItemAvailabilityRequest $request, MenuItem $menuItem)
@@ -84,7 +87,7 @@ class MenuItemController extends Controller
         $this->authorize('update', $menuItem);
         $menuItem->update($request->validated());
 
-        return $this->successResponse($menuItem->refresh(), message: 'Menu item availability updated.');
+        return $this->successResponse(new MenuItemResource($menuItem->refresh()->load('category')), message: 'Menu item availability updated.');
     }
 
     public function destroy(MenuItem $menuItem)
