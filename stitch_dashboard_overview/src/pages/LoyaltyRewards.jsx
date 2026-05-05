@@ -6,8 +6,6 @@ const REWARD_TYPES = [
   ["discount", "Discount"],
   ["free_item", "Free Item"],
   ["free_delivery", "Free Delivery"],
-  ["cashback", "Cashback"],
-  ["custom", "Custom"],
 ];
 
 const REWARD_STATUSES = [
@@ -29,6 +27,9 @@ const emptyForm = () => ({
   description: "",
   pointsRequired: "",
   rewardType: "discount",
+  menuItemId: "",
+  menuItemSearch: "",
+  discountPercentage: "",
   status: "draft",
 });
 
@@ -42,13 +43,39 @@ function statusClass(status) {
 
 export default function LoyaltyRewards({ onNavigate, token, user, onLogout }) {
   const [overview, setOverview] = useState(null);
+  const [menuItems, setMenuItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [rewardStatusFilter, setRewardStatusFilter] = useState("all");
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deletingRewardId, setDeletingRewardId] = useState(null);
+  const [menuItemSearchOpen, setMenuItemSearchOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
+
+  useEffect(() => {
+    if (!token) return undefined;
+    let isCancelled = false;
+
+    const loadMenuItems = async () => {
+      try {
+        const payload = await api.getMenuItems(token);
+        if (!isCancelled) {
+          setMenuItems(Array.isArray(payload) ? payload : []);
+        }
+      } catch {
+        if (!isCancelled) {
+          setMenuItems([]);
+        }
+      }
+    };
+
+    loadMenuItems();
+    return () => {
+      isCancelled = true;
+    };
+  }, [token]);
 
   useEffect(() => {
     if (!token) return undefined;
@@ -81,6 +108,27 @@ export default function LoyaltyRewards({ onNavigate, token, user, onLogout }) {
   const members = overview?.top_customers || [];
   const trend = overview?.weekly_trend || [];
   const trendMax = useMemo(() => Math.max(1, ...trend.map((row) => Number(row?.points || 0))), [trend]);
+  const rewardNeedsMenuConfig = form.rewardType === "discount" || form.rewardType === "free_item";
+  const selectedMenuItem = useMemo(
+    () => menuItems.find((item) => String(item?.id) === String(form.menuItemId)) || null,
+    [menuItems, form.menuItemId]
+  );
+  const previewDiscountPercentage = Number(form.discountPercentage || 0);
+  const previewMenuPrice = Number(selectedMenuItem?.price || 0);
+  const previewDiscountedPrice = Math.max(
+    0,
+    previewMenuPrice - (previewMenuPrice * previewDiscountPercentage) / 100
+  );
+  const filteredMenuItems = useMemo(() => {
+    const searchTerm = String(form.menuItemSearch || "").trim().toLowerCase();
+    if (!searchTerm) {
+      return menuItems.slice(0, 12);
+    }
+
+    return menuItems
+      .filter((item) => String(item?.name || "").toLowerCase().includes(searchTerm))
+      .slice(0, 12);
+  }, [menuItems, form.menuItemSearch]);
 
   const editReward = (reward) => {
     setForm({
@@ -89,6 +137,12 @@ export default function LoyaltyRewards({ onNavigate, token, user, onLogout }) {
       description: reward.description || "",
       pointsRequired: String(reward.points_required ?? ""),
       rewardType: reward.reward_type || "discount",
+      menuItemId: reward.menu_item_id ? String(reward.menu_item_id) : "",
+      menuItemSearch: reward.menu_item?.name || "",
+      discountPercentage:
+        reward.discount_percentage !== null && reward.discount_percentage !== undefined
+          ? String(reward.discount_percentage)
+          : "",
       status: reward.status || "draft",
     });
     setOpen(true);
@@ -100,6 +154,15 @@ export default function LoyaltyRewards({ onNavigate, token, user, onLogout }) {
     if (form.pointsRequired === "" || Number(form.pointsRequired) < 0) {
       return setError("Points required must be zero or greater.");
     }
+    if (rewardNeedsMenuConfig && !form.menuItemId) {
+      return setError("Please select a menu item.");
+    }
+    if (rewardNeedsMenuConfig) {
+      const discount = Number(form.discountPercentage);
+      if (form.discountPercentage === "" || Number.isNaN(discount) || discount < 0 || discount > 100) {
+        return setError("Discount percentage must be between 0 and 100.");
+      }
+    }
 
     setSaving(true);
     setError("");
@@ -110,6 +173,8 @@ export default function LoyaltyRewards({ onNavigate, token, user, onLogout }) {
         points_required: Number(form.pointsRequired),
         reward_type: form.rewardType,
         status: form.status,
+        menu_item_id: rewardNeedsMenuConfig ? Number(form.menuItemId) : null,
+        discount_percentage: rewardNeedsMenuConfig ? Number(form.discountPercentage) : null,
       };
 
       if (form.id) {
@@ -130,6 +195,48 @@ export default function LoyaltyRewards({ onNavigate, token, user, onLogout }) {
     } finally {
       setSaving(false);
     }
+  };
+
+  const deleteReward = async (reward) => {
+    const confirmed = window.confirm(`Delete reward "${reward.name}"?`);
+    if (!confirmed) return;
+
+    setDeletingRewardId(reward.id);
+    setError("");
+    try {
+      await api.deleteLoyaltyReward(token, reward.id);
+      const refreshed = await api.getLoyaltyOverview(token, {
+        search,
+        status: rewardStatusFilter === "all" ? undefined : rewardStatusFilter,
+      });
+      setOverview(refreshed || null);
+    } catch (requestError) {
+      setError(requestError?.message || "Failed to delete reward.");
+    } finally {
+      setDeletingRewardId(null);
+    }
+  };
+
+  const handleMenuItemSearchChange = (value) => {
+    const normalized = value.trim().toLowerCase();
+    const exactMatch = menuItems.find(
+      (item) => String(item?.name || "").trim().toLowerCase() === normalized
+    );
+
+    setForm((previous) => ({
+      ...previous,
+      menuItemSearch: value,
+      menuItemId: exactMatch ? String(exactMatch.id) : "",
+    }));
+  };
+
+  const selectMenuItem = (item) => {
+    setForm((previous) => ({
+      ...previous,
+      menuItemId: String(item.id),
+      menuItemSearch: item.name || "",
+    }));
+    setMenuItemSearchOpen(false);
   };
 
   return (
@@ -206,8 +313,29 @@ export default function LoyaltyRewards({ onNavigate, token, user, onLogout }) {
                     <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${statusClass(reward.status)}`}>{reward.status}</span>
                   </div>
                   <p className="text-sm text-slate-600 mt-2 min-h-[2.5rem]">{reward.description || "No description."}</p>
-                  <div className="mt-3 text-xs text-slate-500">{reward.reward_type?.replaceAll("_", " ")} • {fmt(reward.points_required)} pts • {fmt(reward.usage_count)} uses</div>
-                  <button className="mt-3 px-3 py-1.5 rounded-lg bg-slate-100 text-xs font-semibold hover:bg-slate-200" type="button" onClick={() => editReward(reward)}>Edit</button>
+                  <div className="mt-3 text-xs text-slate-500">{reward.reward_type?.replaceAll("_", " ")} | {fmt(reward.points_required)} pts | {fmt(reward.usage_count)} uses</div>
+                  {(reward.reward_type === "discount" || reward.reward_type === "free_item") && reward.menu_item ? (
+                    <div className="mt-2 text-xs text-slate-500">
+                      Item: {reward.menu_item.name} | Price: ${Number(reward.menu_item.price || 0).toFixed(2)} | Discount: {Number(reward.discount_percentage || 0).toFixed(2)}% | Final: ${Number(reward.discounted_price || 0).toFixed(2)}
+                    </div>
+                  ) : null}
+                  <div className="mt-3 flex items-center gap-2">
+                    <button
+                      className="px-3 py-1.5 rounded-lg bg-slate-100 text-xs font-semibold hover:bg-slate-200"
+                      type="button"
+                      onClick={() => editReward(reward)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="px-3 py-1.5 rounded-lg bg-red-50 text-red-700 text-xs font-semibold hover:bg-red-100 disabled:opacity-60"
+                      type="button"
+                      onClick={() => deleteReward(reward)}
+                      disabled={deletingRewardId === reward.id}
+                    >
+                      {deletingRewardId === reward.id ? "Deleting..." : "Delete"}
+                    </button>
+                  </div>
                 </article>
               )) : <div className="col-span-full bg-white p-6 rounded-xl border border-primary/10 text-sm text-slate-500">{loading ? "Loading rewards..." : "No rewards found."}</div>}
             </div>
@@ -221,7 +349,7 @@ export default function LoyaltyRewards({ onNavigate, token, user, onLogout }) {
                   <div key={member.id} className="px-4 py-3 flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-sm font-bold truncate">{member.customer?.name || `Customer #${member.customer_id}`}</p>
-                      <p className="text-xs text-slate-500">{member.orders_count} orders • {member.tier}</p>
+                      <p className="text-xs text-slate-500">{member.orders_count} orders | {member.tier}</p>
                     </div>
                     <p className="text-sm font-black text-primary shrink-0">{fmt(member.points)} pts</p>
                   </div>
@@ -253,19 +381,85 @@ export default function LoyaltyRewards({ onNavigate, token, user, onLogout }) {
 
       {open ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60">
-          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-visible">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h3 className="text-xl font-bold">{form.id ? "Edit Reward" : "Create Reward"}</h3>
               <button className="material-symbols-outlined text-slate-400 hover:text-slate-600" type="button" onClick={() => setOpen(false)}>close</button>
             </div>
-            <form className="p-6 space-y-4" onSubmit={saveReward}>
+            <form className="p-6 space-y-4 overflow-visible" onSubmit={saveReward}>
               <input className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg text-sm" placeholder="Reward name" type="text" value={form.name} onChange={(event) => setForm((previous) => ({ ...previous, name: event.target.value }))} required />
               <textarea className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg text-sm resize-none" placeholder="Description" rows="3" value={form.description} onChange={(event) => setForm((previous) => ({ ...previous, description: event.target.value }))}></textarea>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <input className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg text-sm" type="number" min="0" placeholder="Points" value={form.pointsRequired} onChange={(event) => setForm((previous) => ({ ...previous, pointsRequired: event.target.value }))} required />
-                <select className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg text-sm" value={form.rewardType} onChange={(event) => setForm((previous) => ({ ...previous, rewardType: event.target.value }))}>{REWARD_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+                <select
+                  className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg text-sm"
+                  value={form.rewardType}
+                  onChange={(event) => {
+                    const nextType = event.target.value;
+                    setForm((previous) => ({
+                      ...previous,
+                      rewardType: nextType,
+                      menuItemId: nextType === "free_delivery" ? "" : previous.menuItemId,
+                      menuItemSearch: nextType === "free_delivery" ? "" : previous.menuItemSearch,
+                      discountPercentage: nextType === "free_delivery" ? "" : previous.discountPercentage,
+                    }));
+                  }}
+                >
+                  {REWARD_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
                 <select className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg text-sm" value={form.status} onChange={(event) => setForm((previous) => ({ ...previous, status: event.target.value }))}>{REWARD_STATUSES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
               </div>
+
+              {rewardNeedsMenuConfig ? (
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <div className="relative z-[70]">
+                    <input
+                      className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg text-sm"
+                      placeholder="Search menu item"
+                      type="text"
+                      value={form.menuItemSearch}
+                      onFocus={() => setMenuItemSearchOpen(true)}
+                      onBlur={() => {
+                        setTimeout(() => setMenuItemSearchOpen(false), 120);
+                      }}
+                      onChange={(event) => handleMenuItemSearchChange(event.target.value)}
+                    />
+                    {menuItemSearchOpen ? (
+                      <div className="absolute left-0 right-0 top-full z-[80] mt-1 max-h-44 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+                        {filteredMenuItems.length ? filteredMenuItems.map((item) => (
+                          <button
+                            key={item.id}
+                            className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
+                            type="button"
+                            onMouseDown={() => selectMenuItem(item)}
+                          >
+                            {item.name} (${Number(item.price || 0).toFixed(2)})
+                          </button>
+                        )) : (
+                          <p className="px-3 py-2 text-xs text-slate-500">No menu items found.</p>
+                        )}
+                      </div>
+                    ) : null}
+                    {form.menuItemId && selectedMenuItem ? (
+                      <p className="mt-1 text-xs text-emerald-700">Selected: {selectedMenuItem.name}</p>
+                    ) : null}
+                  </div>
+                  <input
+                    className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg text-sm"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    placeholder="Discount %"
+                    value={form.discountPercentage}
+                    onChange={(event) => setForm((previous) => ({ ...previous, discountPercentage: event.target.value }))}
+                    required
+                  />
+                  <div className="w-full px-4 py-2.5 bg-slate-50 rounded-lg text-sm text-slate-700">
+                    Final Price: ${Number(previewDiscountedPrice || 0).toFixed(2)}
+                  </div>
+                </div>
+              ) : null}
               <div className="pt-2 flex justify-end gap-2">
                 <button className="px-4 py-2 text-sm font-semibold rounded-lg bg-slate-100 hover:bg-slate-200" type="button" onClick={() => setOpen(false)}>Cancel</button>
                 <button className="px-4 py-2 text-sm font-semibold rounded-lg bg-primary text-white hover:bg-primary/90 disabled:opacity-60" type="submit" disabled={saving}>{saving ? "Saving..." : form.id ? "Save Changes" : "Create Reward"}</button>
@@ -277,3 +471,4 @@ export default function LoyaltyRewards({ onNavigate, token, user, onLogout }) {
     </>
   );
 }
+

@@ -259,6 +259,20 @@ CREATE TABLE `loyalty_members` (
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+--
+-- Dumping data for table `loyalty_members`
+--
+
+INSERT INTO `loyalty_members` (`id`, `restaurant_id`, `customer_id`, `points`, `orders_count`, `tier`, `last_activity_at`, `created_at`, `updated_at`) VALUES
+(1, 1, 2, 1280, 14, 'gold', '2026-05-05 10:15:00', '2026-04-28 08:30:00', '2026-05-05 10:15:00'),
+(2, 1, 54, 940, 10, 'silver', '2026-05-04 18:00:00', '2026-04-29 09:10:00', '2026-05-04 18:00:00'),
+(3, 1, 55, 760, 8, 'silver', '2026-05-03 14:22:00', '2026-04-30 11:00:00', '2026-05-03 14:22:00'),
+(4, 1, 56, 480, 5, 'bronze', '2026-05-02 19:30:00', '2026-05-01 10:00:00', '2026-05-02 19:30:00'),
+(5, 1, 57, 320, 4, 'bronze', '2026-05-05 09:45:00', '2026-05-01 16:00:00', '2026-05-05 09:45:00'),
+(6, 2, 53, 860, 9, 'silver', '2026-05-05 11:20:00', '2026-04-30 13:30:00', '2026-05-05 11:20:00'),
+(7, 2, 2, 640, 7, 'bronze', '2026-05-04 17:15:00', '2026-05-01 12:45:00', '2026-05-04 17:15:00'),
+(8, 2, 55, 510, 6, 'bronze', '2026-05-03 20:05:00', '2026-05-01 15:10:00', '2026-05-03 20:05:00');
+
 -- --------------------------------------------------------
 
 --
@@ -293,6 +307,33 @@ CREATE TABLE `loyalty_rewards` (
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `loyalty_rewards`
+--
+
+INSERT INTO `loyalty_rewards` (`id`, `restaurant_id`, `name`, `description`, `points_required`, `reward_type`, `status`, `usage_count`, `created_at`, `updated_at`) VALUES
+(1, 1, '10% Off Next Order', 'Redeem for 10% discount on any order above $15.', 300, 'discount', 'active', 24, '2026-04-25 09:00:00', '2026-05-05 08:00:00'),
+(2, 1, 'Free Delivery Pass', 'Free delivery on your next eligible order.', 450, 'free_delivery', 'active', 17, '2026-04-25 09:05:00', '2026-05-05 08:00:00'),
+(3, 1, 'Chef Surprise Item', 'Rotating kitchen favorite item added once per redemption.', 650, 'free_item', 'draft', 0, '2026-04-25 09:10:00', '2026-05-03 10:20:00'),
+(4, 2, 'Combo Upgrade', 'Upgrade to combo meal with side and drink.', 250, 'free_item', 'active', 11, '2026-04-27 10:00:00', '2026-05-05 08:30:00'),
+(5, 2, 'Cashback Weekend', 'Get cashback credit on weekend orders.', 500, 'cashback', 'active', 7, '2026-04-27 10:15:00', '2026-05-05 08:30:00'),
+(6, 2, 'VIP Tasting Invite', 'Invite to periodic tasting sessions and menu previews.', 900, 'custom', 'archived', 2, '2026-04-27 10:20:00', '2026-05-02 19:40:00');
+
+--
+-- Dumping data for table `loyalty_redemptions`
+--
+
+INSERT INTO `loyalty_redemptions` (`id`, `restaurant_id`, `loyalty_member_id`, `loyalty_reward_id`, `points_spent`, `created_at`, `updated_at`) VALUES
+(1, 1, 1, 1, 300, '2026-05-01 12:10:00', '2026-05-01 12:10:00'),
+(2, 1, 2, 2, 450, '2026-05-02 15:45:00', '2026-05-02 15:45:00'),
+(3, 1, 4, 1, 300, '2026-05-03 18:20:00', '2026-05-03 18:20:00'),
+(4, 1, 1, 1, 300, '2026-05-04 13:05:00', '2026-05-04 13:05:00'),
+(5, 1, 5, 2, 450, '2026-05-05 09:20:00', '2026-05-05 09:20:00'),
+(6, 2, 6, 4, 250, '2026-05-02 14:35:00', '2026-05-02 14:35:00'),
+(7, 2, 7, 5, 500, '2026-05-03 16:40:00', '2026-05-03 16:40:00'),
+(8, 2, 8, 4, 250, '2026-05-04 19:05:00', '2026-05-04 19:05:00'),
+(9, 2, 6, 5, 500, '2026-05-05 11:05:00', '2026-05-05 11:05:00');
 
 -- --------------------------------------------------------
 
@@ -980,7 +1021,11 @@ INSERT INTO `restaurant_registrations` (`id`, `owner_user_id`, `restaurant_name`
 (3, 1, 'Harbor Tacos Lab', 'Street taco concept currently under review.', 'owner@hungerrush.local', '01111111111', '{\"source\":\"seed_sample\",\"documents_submitted\":false}', 'approved', 58, '2026-05-04 13:24:50', 'Approved from admin panel.', '2026-04-28 13:18:00', '2026-05-04 13:24:50'),
 (4, 52, 'Noodle Harbor', 'Pan-Asian noodle station.', 'test@gmail.com', NULL, '{\"source\":\"seed_sample\",\"documents_submitted\":true}', 'approved', 58, '2026-04-30 13:18:00', 'All required documents verified.', '2026-04-26 13:18:00', '2026-04-30 13:18:00'),
 (5, 1, 'Pita Avenue', 'Wraps and pita pockets with late-night menu.', 'owner@hungerrush.local', '01111111111', '{\"source\":\"seed_sample\",\"documents_submitted\":true}', 'rejected', 58, '2026-05-01 13:18:00', 'Missing municipality license copy.', '2026-04-27 13:18:00', '2026-05-01 13:18:00'),
-(6, 52, 'Sizzle Cart Co', 'Late-night grill cart pilot branch application.', 'test@gmail.com', NULL, '{\"source\":\"seed_sample\",\"documents_submitted\":true}', 'approved', 58, '2026-05-04 13:24:50', 'Approved from admin panel.', '2026-05-02 13:18:00', '2026-05-04 13:24:50');
+(6, 52, 'Sizzle Cart Co', 'Late-night grill cart pilot branch application.', 'test@gmail.com', NULL, '{\"source\":\"seed_sample\",\"documents_submitted\":true}', 'approved', 58, '2026-05-04 13:24:50', 'Approved from admin panel.', '2026-05-02 13:18:00', '2026-05-04 13:24:50'),
+(7, 900101, 'Olive Grove Kitchen', 'Mediterranean lunch bowls and charcoal wraps focused on office deliveries.', 'owner.olivegrove@hungerrush.local', '+96170010101', '{\"source\":\"seed_sample\",\"documents_submitted\":true,\"owner_name\":\"Rami Zgheib\"}', 'pending', NULL, NULL, NULL, '2026-05-03 10:25:00', '2026-05-03 10:25:00'),
+(8, 900102, 'Sunset Shawarma Station', 'Shawarma-focused concept with rotating sauces and late-night delivery.', 'owner.sunsetshawarma@hungerrush.local', '+96170010102', '{\"source\":\"seed_sample\",\"documents_submitted\":true,\"owner_name\":\"Nadine Hallak\"}', 'pending', NULL, NULL, NULL, '2026-05-04 11:25:00', '2026-05-04 11:25:00'),
+(9, 900103, 'Bamboo Wok Bar', 'Pan-Asian wok dishes and noodle bowls for compact, quick delivery zones.', 'owner.bamboowok@hungerrush.local', '+96170010103', '{\"source\":\"seed_sample\",\"documents_submitted\":true,\"owner_name\":\"Hassan Dalloul\"}', 'pending', NULL, NULL, NULL, '2026-05-04 12:25:00', '2026-05-04 12:25:00'),
+(10, 900104, 'Brick Oven Slices', 'Neighborhood pizza counter requesting onboarding for weekend dinner peaks.', 'owner.brickoven@hungerrush.local', '+96170010104', '{\"source\":\"seed_sample\",\"documents_submitted\":true,\"owner_name\":\"Mira Souaid\"}', 'pending', NULL, NULL, NULL, '2026-05-05 10:25:00', '2026-05-05 10:25:00');
 
 -- --------------------------------------------------------
 
@@ -1001,6 +1046,24 @@ CREATE TABLE `reviews` (
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `reviews`
+--
+
+INSERT INTO `reviews` (`id`, `restaurant_id`, `customer_id`, `order_id`, `rating`, `comment`, `reply`, `replied_by`, `replied_at`, `created_at`, `updated_at`) VALUES
+(1, 1, 2, 2191, 5, 'Burger was fresh, juicy, and exactly like the menu photo.', 'Thank you for the great feedback. We are happy you enjoyed it.', 1, '2026-05-01 11:18:00', '2026-05-01 09:42:00', '2026-05-01 11:18:00'),
+(2, 1, 54, 2192, 4, 'Good taste and fair portion size. Fries were a little cold.', NULL, NULL, NULL, '2026-05-01 13:06:00', '2026-05-01 13:06:00'),
+(3, 1, 55, 2193, 3, 'Food quality was okay but delivery took longer than expected.', 'Sorry about the delay. We adjusted dispatch timing to improve delivery speed.', 1, '2026-05-02 17:25:00', '2026-05-02 15:07:00', '2026-05-02 17:25:00'),
+(4, 1, 56, 2194, 5, 'Perfect packaging and still hot on arrival. Will order again.', NULL, NULL, NULL, '2026-05-03 18:44:00', '2026-05-03 18:44:00'),
+(5, 1, 57, NULL, 2, 'One order arrived with missing sauce and soggy fries.', 'Thanks for reporting this. We retrained our packing team and added a final check.', 1, '2026-05-03 21:10:00', '2026-05-03 20:02:00', '2026-05-03 21:10:00'),
+(6, 2, 53, NULL, 5, 'Excellent shawarma wrap and very quick prep time.', 'Appreciate your review. We look forward to serving you again soon.', 52, '2026-05-04 12:20:00', '2026-05-04 10:12:00', '2026-05-04 12:20:00'),
+(7, 2, 2, NULL, 4, 'Tasty meal and nice presentation. Could use a bit more spice.', NULL, NULL, NULL, '2026-05-04 14:09:00', '2026-05-04 14:09:00'),
+(8, 2, 55, NULL, 1, 'Order was late and item temperature was not acceptable.', 'We are sorry about this experience. Support already issued a credit and we are investigating.', 52, '2026-05-05 08:32:00', '2026-05-05 07:15:00', '2026-05-05 08:32:00'),
+(9, 3, 2, NULL, 5, 'Very clean packaging and friendly handoff from staff.', 'Thank you. We appreciate your support and detailed feedback.', 58, '2026-05-04 16:40:00', '2026-05-04 15:15:00', '2026-05-04 16:40:00'),
+(10, 3, 54, NULL, 4, 'Good quality overall, portion was generous.', NULL, NULL, NULL, '2026-05-05 09:10:00', '2026-05-05 09:10:00'),
+(11, 4, 55, NULL, 3, 'Food was acceptable but arrived a bit late.', NULL, NULL, NULL, '2026-05-03 12:20:00', '2026-05-03 12:20:00'),
+(12, 4, 56, NULL, 5, 'Loved the flavors and presentation. Great first impression.', 'Thanks a lot. We are happy you enjoyed your meal.', 2, '2026-05-05 10:55:00', '2026-05-05 10:00:00', '2026-05-05 10:55:00');
 
 -- --------------------------------------------------------
 
@@ -1630,7 +1693,7 @@ ALTER TABLE `restaurant_branches`
 -- AUTO_INCREMENT for table `restaurant_registrations`
 --
 ALTER TABLE `restaurant_registrations`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT for table `reviews`

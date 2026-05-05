@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AdminShell from "../../components/AdminShell.jsx";
 import {
   ActionButton,
@@ -8,9 +8,12 @@ import {
   Modal,
   PaginationControls,
   SearchField,
+  SortableTh,
   StatusBadge,
   TableShell,
   formatDate,
+  sortRows,
+  toggleSortConfig,
 } from "../../components/admin/AdminUI.jsx";
 import { api } from "../../lib/api.js";
 import { mockAdminData } from "../../lib/adminData.js";
@@ -55,6 +58,7 @@ function waitingDays(value) {
 export default function AdminNewRestaurants({ onNavigate, token, user, onLogout }) {
   const [registrations, setRegistrations] = useState([]);
   const [search, setSearch] = useState("");
+  const [sortConfig, setSortConfig] = useState({ key: "created_at", direction: "asc" });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
@@ -156,6 +160,25 @@ export default function AdminNewRestaurants({ onNavigate, token, user, onLogout 
     }
   };
 
+  const sortedRegistrations = useMemo(
+    () =>
+      sortRows(registrations, sortConfig, (registration, key) => {
+        if (key === "id") return registration?.id;
+        if (key === "restaurant_name") return restaurantName(registration);
+        if (key === "owner_name") return ownerName(registration);
+        if (key === "contact_info") return contactInfo(registration);
+        if (key === "created_at") return registration?.created_at;
+        if (key === "waiting_days") return waitingDays(registration?.created_at);
+        if (key === "status") return registrationStatus(registration?.status);
+        return registration?.[key];
+      }),
+    [registrations, sortConfig]
+  );
+
+  const handleSort = (key) => {
+    setSortConfig((previous) => toggleSortConfig(previous, key));
+  };
+
   return (
     <AdminShell
       activePage="adminNewRestaurants"
@@ -180,19 +203,19 @@ export default function AdminNewRestaurants({ onNavigate, token, user, onLogout 
         <table className="w-full text-left">
           <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
             <tr>
-              <th className="px-6 py-4">Request ID</th>
-              <th className="px-6 py-4">Restaurant</th>
-              <th className="px-6 py-4">Owner</th>
-              <th className="px-6 py-4">Email / Contact</th>
-              <th className="px-6 py-4">Registered</th>
-              <th className="px-6 py-4">Waiting Days</th>
-              <th className="px-6 py-4">Status</th>
+              <SortableTh label="Request ID" sortKey="id" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Restaurant" sortKey="restaurant_name" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Owner" sortKey="owner_name" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Email / Contact" sortKey="contact_info" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Registered" sortKey="created_at" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Waiting Days" sortKey="waiting_days" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Status" sortKey="status" sortConfig={sortConfig} onSort={handleSort} />
               <th className="px-6 py-4 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-primary/5">
-            {registrations.length ? (
-              registrations.map((registration) => (
+            {sortedRegistrations.length ? (
+              sortedRegistrations.map((registration) => (
                 <tr key={registration.id} className="hover:bg-slate-50">
                   <td className="px-6 py-4 font-bold text-primary">#{registration.id}</td>
                   <td className="px-6 py-4 font-semibold">{restaurantName(registration)}</td>

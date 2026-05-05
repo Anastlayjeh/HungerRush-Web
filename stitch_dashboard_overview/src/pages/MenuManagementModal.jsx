@@ -9,6 +9,29 @@ function toMoney(value) {
     maximumFractionDigits: 2,
   }).format(Number(value || 0));
 }
+const MENU_COMMISSION_RATE = 0.1;
+
+function basePriceFromFinalPrice(finalPrice) {
+  const normalizedFinal = Number(finalPrice || 0);
+  if (!normalizedFinal) return 0;
+  return Number((normalizedFinal / (1 + MENU_COMMISSION_RATE)).toFixed(2));
+}
+
+function commissionAmountFromBasePrice(basePrice) {
+  const normalizedBase = Number(basePrice || 0);
+  return Number((Math.max(normalizedBase, 0) * MENU_COMMISSION_RATE).toFixed(2));
+}
+
+function finalPriceFromBasePrice(basePrice) {
+  const normalizedBase = Number(basePrice || 0);
+  return Number((Math.max(normalizedBase, 0) * (1 + MENU_COMMISSION_RATE)).toFixed(2));
+}
+
+function commissionAmountFromFinalPrice(finalPrice) {
+  const normalizedFinal = Number(finalPrice || 0);
+  const basePrice = basePriceFromFinalPrice(normalizedFinal);
+  return Number(Math.max(normalizedFinal - basePrice, 0).toFixed(2));
+}
 
 function createInitialFormState() {
   return {
@@ -81,6 +104,11 @@ function getSuggestedIngredientList(itemName, categoryName = "") {
 
 function createItemDetailsState(item = null, categoryName = "") {
   const rawIngredients = item?.ingredients || suggestIngredients(item?.name, categoryName);
+  const finalPrice = Number(item?.final_price ?? item?.price ?? 0);
+  const basePrice =
+    item?.base_price !== undefined && item?.base_price !== null
+      ? Number(item.base_price || 0)
+      : basePriceFromFinalPrice(finalPrice);
 
   return {
     id: item?.id || null,
@@ -88,7 +116,7 @@ function createItemDetailsState(item = null, categoryName = "") {
     name: item?.name || "",
     description: item?.description || "",
     ingredients: parseIngredientList(rawIngredients),
-    price: item?.price !== undefined && item?.price !== null ? String(item.price) : "",
+    price: item ? String(basePrice) : "",
     prepTime: item?.prep_time !== undefined && item?.prep_time !== null ? String(item.prep_time) : "",
     isAvailable: Boolean(item?.is_available),
   };
@@ -110,6 +138,11 @@ function MenuCard({ item, categoryName, isUpdating, onDelete, onOpenDetails, onT
   const displayIngredients = ingredientListToString(
     item?.ingredients || suggestIngredients(item?.name, categoryName)
   );
+  const finalPrice = Number(item?.final_price ?? item?.price ?? 0);
+  const commissionAmount =
+    item?.commission_amount !== undefined && item?.commission_amount !== null
+      ? Number(item.commission_amount || 0)
+      : commissionAmountFromFinalPrice(finalPrice);
   const previewImage =
     imageUrls[0] ||
     "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=900&q=80";
@@ -138,7 +171,10 @@ function MenuCard({ item, categoryName, isUpdating, onDelete, onOpenDetails, onT
       <div className="p-5">
         <div className="flex items-start justify-between gap-3 mb-2">
           <h3 className="font-bold text-lg">{item?.name || "Untitled Item"}</h3>
-          <span className="text-primary font-bold">{toMoney(item?.price)}</span>
+          <div className="text-right">
+            <span className="text-primary font-bold">{toMoney(finalPrice)}</span>
+            <p className="text-xs font-bold text-emerald-600">+{toMoney(commissionAmount)}</p>
+          </div>
         </div>
         <p className="text-sm text-slate-600 mb-2">{item?.description || "No description provided."}</p>
         <p className="text-xs text-slate-500 mb-2 line-clamp-2">
@@ -510,6 +546,12 @@ export default function MenuManagementModal({ onNavigate, token, user, onLogout 
 
   const selectedDetailItem = menuItems.find((item) => item.id === itemDetails.id);
   const selectedDetailItemImageUrls = normalizeImageUrls(selectedDetailItem?.image_urls);
+  const createBasePrice = Number(form.price || 0);
+  const createCommissionAmount = commissionAmountFromBasePrice(createBasePrice);
+  const createFinalPrice = finalPriceFromBasePrice(createBasePrice);
+  const detailsBasePrice = Number(itemDetails.price || 0);
+  const detailsCommissionAmount = commissionAmountFromBasePrice(detailsBasePrice);
+  const detailsFinalPrice = finalPriceFromBasePrice(detailsBasePrice);
 
   return (
     <>
@@ -649,7 +691,7 @@ export default function MenuManagementModal({ onNavigate, token, user, onLogout 
                   />
                 </div>
                 <div className="col-span-2 sm:col-span-1">
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Price ($)</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Base Price ($)</label>
                   <input
                     className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg focus:ring-2 focus:ring-primary/20 text-sm"
                     placeholder="0.00"
@@ -660,6 +702,11 @@ export default function MenuManagementModal({ onNavigate, token, user, onLogout 
                     onChange={(event) => setForm((previous) => ({ ...previous, price: event.target.value }))}
                     required
                   />
+                  <p className="mt-1 text-xs">
+                    <span className="font-bold text-emerald-600">+{toMoney(createCommissionAmount)}</span>
+                    <span className="text-slate-500"> commission | Final price in DB: </span>
+                    <span className="font-semibold text-slate-700">{toMoney(createFinalPrice)}</span>
+                  </p>
                 </div>
               </div>
 
@@ -925,7 +972,7 @@ export default function MenuManagementModal({ onNavigate, token, user, onLogout 
                   />
                 </div>
                 <div className="col-span-2 sm:col-span-1">
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Price ($)</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Base Price ($)</label>
                   <input
                     className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg focus:ring-2 focus:ring-primary/20 text-sm"
                     type="number"
@@ -938,6 +985,11 @@ export default function MenuManagementModal({ onNavigate, token, user, onLogout 
                     required
                     disabled={isSavingDetails}
                   />
+                  <p className="mt-1 text-xs">
+                    <span className="font-bold text-emerald-600">+{toMoney(detailsCommissionAmount)}</span>
+                    <span className="text-slate-500"> commission | Final price in DB: </span>
+                    <span className="font-semibold text-slate-700">{toMoney(detailsFinalPrice)}</span>
+                  </p>
                 </div>
               </div>
 

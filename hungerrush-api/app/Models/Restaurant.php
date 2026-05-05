@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\UserRole;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,6 +13,19 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 class Restaurant extends Model
 {
     use HasFactory;
+
+    protected static function booted(): void
+    {
+        static::created(function (Restaurant $restaurant): void {
+            $restaurant->promoteOwnerToRestaurantOwnerRole();
+        });
+
+        static::updated(function (Restaurant $restaurant): void {
+            if ($restaurant->wasChanged('owner_user_id')) {
+                $restaurant->promoteOwnerToRestaurantOwnerRole();
+            }
+        });
+    }
 
     protected $fillable = [
         'owner_user_id',
@@ -91,5 +105,19 @@ class Restaurant extends Model
     public function followers(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'restaurant_follows')->withTimestamps();
+    }
+
+    private function promoteOwnerToRestaurantOwnerRole(): void
+    {
+        if (!$this->owner_user_id) {
+            return;
+        }
+
+        User::query()
+            ->whereKey($this->owner_user_id)
+            ->where('role', '!=', UserRole::RestaurantOwner->value)
+            ->update([
+                'role' => UserRole::RestaurantOwner->value,
+            ]);
     }
 }

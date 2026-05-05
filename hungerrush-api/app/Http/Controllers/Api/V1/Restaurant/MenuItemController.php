@@ -39,6 +39,7 @@ class MenuItemController extends Controller
             (string) ($validated['name'] ?? ''),
             $category->name
         );
+        $validated['price'] = MenuItem::applyCommissionToBasePrice($validated['price']);
 
         $item = MenuItem::create($validated);
 
@@ -72,6 +73,10 @@ class MenuItemController extends Controller
             );
         } elseif (blank($menuItem->ingredients)) {
             $validated['ingredients'] = $this->resolveIngredients(null, $resolvedName, $categoryName);
+        }
+
+        if (array_key_exists('price', $validated)) {
+            $validated['price'] = MenuItem::applyCommissionToBasePrice($validated['price']);
         }
 
         $menuItem->update($validated);

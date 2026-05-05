@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\MenuItem;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -24,6 +25,10 @@ class MenuItemResource extends JsonResource
             ? $category->name
             : null;
 
+        $finalPrice = (float) $this->price;
+        $basePrice = MenuItem::basePriceFromFinalPrice($finalPrice);
+        $commissionAmount = MenuItem::commissionAmountFromFinalPrice($finalPrice);
+
         return [
             'id' => $this->id,
             'category_id' => $this->category_id,
@@ -35,7 +40,11 @@ class MenuItemResource extends JsonResource
             'ingredients' => $this->ingredients,
             'image_url' => $imageUrls[0] ?? null,
             'image_urls' => $imageUrls,
-            'price' => (float) $this->price,
+            'price' => $finalPrice,
+            'final_price' => $finalPrice,
+            'base_price' => $basePrice,
+            'commission_amount' => $commissionAmount,
+            'commission_rate' => MenuItem::COMMISSION_RATE,
             'is_available' => (bool) $this->is_available,
             'available' => (bool) $this->is_available,
             'prep_time' => $this->prep_time,

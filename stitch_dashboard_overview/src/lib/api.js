@@ -432,6 +432,15 @@ export const api = {
     );
   },
 
+  async deleteLoyaltyReward(token, rewardId) {
+    return unwrapData(
+      await request(`/v1/restaurant/loyalty/rewards/${rewardId}`, {
+        method: "DELETE",
+        token,
+      })
+    );
+  },
+
   async getAnalytics(token, options = {}) {
     const period =
       typeof options === "string"
@@ -536,6 +545,25 @@ export const api = {
     );
 
     return unwrapList(payload);
+  },
+
+  async updateAdminVideo(token, videoId, body) {
+    return unwrapData(
+      await request(`/v1/admin/videos/${videoId}`, {
+        method: "PATCH",
+        token,
+        body,
+      })
+    );
+  },
+
+  async deleteAdminVideo(token, videoId) {
+    return unwrapData(
+      await request(`/v1/admin/videos/${videoId}`, {
+        method: "DELETE",
+        token,
+      })
+    );
   },
 
   async getAdminOrders(token, params = {}) {

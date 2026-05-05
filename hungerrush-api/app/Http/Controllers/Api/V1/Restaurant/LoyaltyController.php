@@ -8,8 +8,10 @@ use App\Http\Requests\Restaurant\UpdateLoyaltyRewardRequest;
 use App\Models\LoyaltyMember;
 use App\Models\LoyaltyRedemption;
 use App\Models\LoyaltyReward;
+use App\Models\MenuItem;
 use App\Models\Restaurant;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class LoyaltyController extends Controller
 {
@@ -39,6 +41,7 @@ class LoyaltyController extends Controller
         }
 
         $rewards = $rewardsQuery
+            ->with('menuItem:id,name,price')
             ->latest()
             ->get();
 
@@ -61,7 +64,9 @@ class LoyaltyController extends Controller
     public function storeReward(StoreLoyaltyRewardRequest $request)
     {
         $restaurant = $this->resolveRestaurant();
-        $reward = $restaurant->loyaltyRewards()->create($request->validated());
+        $payload = $this->sanitizeRewardPayload($request->validated(), $restaurant);
+        $reward = $restaurant->loyaltyRewards()->create($payload);
+        $reward->load('menuItem:id,name,price');
 
         return $this->successResponse(
             $this->transformReward($reward),
@@ -75,12 +80,23 @@ class LoyaltyController extends Controller
         $restaurant = $this->resolveRestaurant();
         abort_unless($loyaltyReward->restaurant_id === $restaurant->id, 404);
 
-        $loyaltyReward->update($request->validated());
+        $payload = $this->sanitizeRewardPayload($request->validated(), $restaurant, $loyaltyReward);
+        $loyaltyReward->update($payload);
 
         return $this->successResponse(
-            $this->transformReward($loyaltyReward->refresh()),
+            $this->transformReward($loyaltyReward->refresh()->load('menuItem:id,name,price')),
             message: 'Loyalty reward updated successfully.'
         );
+    }
+
+    public function destroyReward(LoyaltyReward $loyaltyReward)
+    {
+        $restaurant = $this->resolveRestaurant();
+        abort_unless($loyaltyReward->restaurant_id === $restaurant->id, 404);
+
+        $loyaltyReward->delete();
+
+        return $this->successResponse(['deleted' => true], message: 'Loyalty reward deleted successfully.');
     }
 
     private function buildWeeklyTrend(Restaurant $restaurant): array
@@ -112,6 +128,15 @@ class LoyaltyController extends Controller
 
     private function transformReward(LoyaltyReward $reward): array
     {
+        $menuItem = $reward->menuItem;
+        $menuItemPrice = $menuItem?->price !== null ? (float) $menuItem->price : null;
+        $discountPercentage = $reward->discount_percentage !== null ? (float) $reward->discount_percentage : null;
+        $discountedPrice = null;
+
+        if ($menuItemPrice !== null && $discountPercentage !== null) {
+            $discountedPrice = round(max($menuItemPrice - ($menuItemPrice * ($discountPercentage / 100)), 0), 2);
+        }
+
         return [
             'id' => $reward->id,
             'restaurant_id' => $reward->restaurant_id,
@@ -120,10 +145,67 @@ class LoyaltyController extends Controller
             'points_required' => (int) $reward->points_required,
             'reward_type' => $reward->reward_type,
             'status' => $reward->status,
+            'menu_item_id' => $reward->menu_item_id,
+            'menu_item' => $menuItem ? [
+                'id' => $menuItem->id,
+                'name' => $menuItem->name,
+                'price' => $menuItemPrice,
+            ] : null,
+            'discount_percentage' => $discountPercentage,
+            'discounted_price' => $discountedPrice,
             'usage_count' => (int) $reward->usage_count,
             'created_at' => optional($reward->created_at)->toISOString(),
             'updated_at' => optional($reward->updated_at)->toISOString(),
         ];
+    }
+
+    private function sanitizeRewardPayload(array $validated, Restaurant $restaurant, ?LoyaltyReward $existing = null): array
+    {
+        $payload = $validated;
+        $nextType = $validated['reward_type'] ?? $existing?->reward_type ?? 'discount';
+        $requiresMenuDiscount = in_array($nextType, ['discount', 'free_item'], true);
+
+        if (!$requiresMenuDiscount) {
+            $payload['menu_item_id'] = null;
+            $payload['discount_percentage'] = null;
+
+            return $payload;
+        }
+
+        $menuItemId = array_key_exists('menu_item_id', $validated)
+            ? $validated['menu_item_id']
+            : $existing?->menu_item_id;
+        $discountPercentage = array_key_exists('discount_percentage', $validated)
+            ? $validated['discount_percentage']
+            : $existing?->discount_percentage;
+
+        if (!$menuItemId) {
+            throw ValidationException::withMessages([
+                'menu_item_id' => ['Please select a menu item for this reward type.'],
+            ]);
+        }
+
+        if ($discountPercentage === null) {
+            throw ValidationException::withMessages([
+                'discount_percentage' => ['Please provide a discount percentage for this reward type.'],
+            ]);
+        }
+
+        $belongsToRestaurant = MenuItem::query()
+            ->whereKey($menuItemId)
+            ->whereHas('category', fn ($builder) => $builder->where('restaurant_id', $restaurant->id))
+            ->exists();
+
+        if (!$belongsToRestaurant) {
+            throw ValidationException::withMessages([
+                'menu_item_id' => ['Selected menu item must belong to your restaurant.'],
+            ]);
+        }
+
+        $payload['menu_item_id'] = (int) $menuItemId;
+        $payload['discount_percentage'] = round((float) $discountPercentage, 2);
+
+        return $payload;
     }
 
     private function transformMember(LoyaltyMember $member): array

@@ -75,6 +75,8 @@ Route::prefix('v1')->group(function () {
             Route::get('/restaurant-registrations', [AdminDashboardController::class, 'restaurantRegistrations']);
             Route::patch('/restaurant-registrations/{registration}', [AdminDashboardController::class, 'updateRestaurantRegistration']);
             Route::get('/videos', [AdminDashboardController::class, 'videos']);
+            Route::patch('/videos/{video}', [AdminDashboardController::class, 'updateVideo']);
+            Route::delete('/videos/{video}', [AdminDashboardController::class, 'deleteVideo']);
             Route::get('/orders', [AdminDashboardController::class, 'orders']);
             Route::patch('/orders/{order}', [AdminDashboardController::class, 'updateOrder']);
             Route::get('/reports', [AdminDashboardController::class, 'reports']);
@@ -119,6 +121,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/loyalty/overview', [LoyaltyController::class, 'overview']);
         Route::post('/loyalty/rewards', [LoyaltyController::class, 'storeReward']);
         Route::patch('/loyalty/rewards/{loyaltyReward}', [LoyaltyController::class, 'updateReward']);
+        Route::delete('/loyalty/rewards/{loyaltyReward}', [LoyaltyController::class, 'destroyReward']);
 
         Route::get('/analytics', [AnalyticsController::class, 'overview']);
     });

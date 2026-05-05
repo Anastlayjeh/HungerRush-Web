@@ -10,11 +10,14 @@ import {
   PaginationControls,
   SearchableSelect,
   SearchField,
+  SortableTh,
   StatusBadge,
   TableShell,
   formatDate,
   formatDateTime,
   normalizeStatus,
+  sortRows,
+  toggleSortConfig,
 } from "../../components/admin/AdminUI.jsx";
 import { api } from "../../lib/api.js";
 import { mockAdminData } from "../../lib/adminData.js";
@@ -74,6 +77,7 @@ export default function AdminRestaurants({ onNavigate, token, user, onLogout }) 
   const [selectedRestaurantFilterId, setSelectedRestaurantFilterId] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sortConfig, setSortConfig] = useState({ key: "id", direction: "desc" });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(true);
@@ -148,9 +152,23 @@ export default function AdminRestaurants({ onNavigate, token, user, onLogout }) 
   }, [restaurants, selectedRestaurantFilterId, search, statusFilter]);
 
   const visibleRestaurants = useMemo(
-    () => filteredRestaurants.slice((page - 1) * pageSize, page * pageSize),
-    [filteredRestaurants, page, pageSize]
+    () =>
+      sortRows(filteredRestaurants, sortConfig, (row, key) => {
+        if (key === "id") return row?.id;
+        if (key === "name") return row?.name;
+        if (key === "owner") return ownerName(row);
+        if (key === "contact") return contactInfo(row);
+        if (key === "status") return adminRestaurantStatus(row?.status);
+        if (key === "rating") return Number(row?.average_rating || row?.rating || 0);
+        if (key === "created_at") return row?.created_at;
+        return row?.[key];
+      }).slice((page - 1) * pageSize, page * pageSize),
+    [filteredRestaurants, sortConfig, page, pageSize]
   );
+
+  const handleSort = (key) => {
+    setSortConfig((previous) => toggleSortConfig(previous, key));
+  };
 
   const updateRestaurant = (target, patch, message) => {
     setRestaurants((previous) =>
@@ -192,13 +210,13 @@ export default function AdminRestaurants({ onNavigate, token, user, onLogout }) 
         <table className="w-full text-left">
           <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
             <tr>
-              <th className="px-6 py-4">Restaurant ID</th>
-              <th className="px-6 py-4">Restaurant</th>
-              <th className="px-6 py-4">Owner</th>
-              <th className="px-6 py-4">Email / Contact</th>
-              <th className="px-6 py-4">Status</th>
-              <th className="px-6 py-4">Rating</th>
-              <th className="px-6 py-4">Created</th>
+              <SortableTh label="Restaurant ID" sortKey="id" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Restaurant" sortKey="name" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Owner" sortKey="owner" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Email / Contact" sortKey="contact" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Status" sortKey="status" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Rating" sortKey="rating" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Created" sortKey="created_at" sortConfig={sortConfig} onSort={handleSort} />
               <th className="px-6 py-4 text-right">Actions</th>
             </tr>
           </thead>

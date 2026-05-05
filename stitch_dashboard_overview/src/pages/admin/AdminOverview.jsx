@@ -1,10 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import AdminShell from "../../components/AdminShell.jsx";
-import { Alert, StatusBadge, TableShell, formatDate, toMoney } from "../../components/admin/AdminUI.jsx";
+import {
+  Alert,
+  SortableTh,
+  StatusBadge,
+  TableShell,
+  formatDate,
+  sortRows,
+  toMoney,
+  toggleSortConfig,
+} from "../../components/admin/AdminUI.jsx";
 import { api } from "../../lib/api.js";
 import { getMockAdminDashboard, mockAdminData } from "../../lib/adminData.js";
 
-function StatCard({ label, value, icon, tone = "primary" }) {
+function StatCard({ label, value, icon, tone = "primary", onClick }) {
   const iconStyles =
     tone === "dark"
       ? "bg-slate-900 text-white"
@@ -13,17 +22,30 @@ function StatCard({ label, value, icon, tone = "primary" }) {
         : tone === "danger"
           ? "bg-red-100 text-red-700"
           : "bg-primary/10 text-primary";
+  const isInteractive = typeof onClick === "function";
+  const classes = `rounded-xl border border-primary/10 bg-white p-5 shadow-sm ${
+    isInteractive
+      ? "cursor-pointer text-left transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      : ""
+  }`;
+  const cardContent = (
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <p className="text-sm font-medium text-slate-500">{label}</p>
+        <h3 className="mt-1 text-3xl font-black text-slate-900">{value}</h3>
+      </div>
+      <span className={`material-symbols-outlined rounded-lg p-2 ${iconStyles}`}>{icon}</span>
+    </div>
+  );
+
+  if (!isInteractive) {
+    return <div className={classes}>{cardContent}</div>;
+  }
 
   return (
-    <div className="rounded-xl border border-primary/10 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm font-medium text-slate-500">{label}</p>
-          <h3 className="mt-1 text-3xl font-black text-slate-900">{value}</h3>
-        </div>
-        <span className={`material-symbols-outlined rounded-lg p-2 ${iconStyles}`}>{icon}</span>
-      </div>
-    </div>
+    <button className={classes} type="button" onClick={onClick}>
+      {cardContent}
+    </button>
   );
 }
 
@@ -32,6 +54,8 @@ export default function AdminOverview({ onNavigate, token, user, onLogout }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [usingMock, setUsingMock] = useState(false);
+  const [orderSortConfig, setOrderSortConfig] = useState({ key: "id", direction: "desc" });
+  const [reportSortConfig, setReportSortConfig] = useState({ key: "id", direction: "desc" });
 
   useEffect(() => {
     if (!token) return undefined;
@@ -76,18 +100,45 @@ export default function AdminOverview({ onNavigate, token, user, onLogout }) {
   };
   const cards = useMemo(
     () => [
-      ["Total Users", stats.users, "group", "primary"],
-      ["Total Customers", stats.customers, "person", "primary"],
-      ["Restaurant Owners", stats.restaurant_owners, "storefront", "primary"],
-      ["Total Restaurants", stats.restaurants, "restaurant", "primary"],
-      ["Total Orders", stats.orders, "receipt_long", "dark"],
-      ["Pending Orders", stats.pending_orders || 0, "pending_actions", "warning"],
-      ["Total Revenue", toMoney(stats.total_revenue || 0), "payments", "dark"],
-      ["Reported Content", stats.reported_content || stats.open_reports || 0, "flag", "danger"],
-      ["Pending Approvals", stats.pending_approvals || stats.open_support_requests || 0, "approval", "warning"],
+      { label: "Total Users", value: stats.users, icon: "group", tone: "primary", pageKey: "adminUsers" },
+      { label: "Total Customers", value: stats.customers, icon: "person", tone: "primary", pageKey: "adminCustomers" },
+      { label: "Total Restaurants", value: stats.restaurants, icon: "restaurant", tone: "primary", pageKey: "adminRestaurants" },
+      { label: "Total Orders", value: stats.orders, icon: "receipt_long", tone: "dark", pageKey: "adminOrders" },
+      { label: "Pending Orders", value: stats.pending_orders || 0, icon: "pending_actions", tone: "warning", pageKey: "adminOrders" },
+      { label: "Total Revenue", value: toMoney(stats.total_revenue || 0), icon: "payments", tone: "dark", pageKey: "adminOrders" },
+      { label: "Reported Content", value: stats.reported_content || stats.open_reports || 0, icon: "flag", tone: "danger", pageKey: "adminReports" },
+      { label: "Pending Approvals", value: stats.pending_approvals || stats.open_support_requests || 0, icon: "approval", tone: "warning", pageKey: "adminNewRestaurants" },
     ],
     [stats]
   );
+  const recentOrders = useMemo(
+    () =>
+      sortRows(dashboard?.recent_orders || [], orderSortConfig, (order, key) => {
+        if (key === "id") return order?.id;
+        if (key === "customer") return order?.customer?.name || `Customer #${order?.customer_id || "-"}`;
+        if (key === "total") return Number(order?.total || 0);
+        if (key === "status") return order?.status;
+        return order?.[key];
+      }),
+    [dashboard?.recent_orders, orderSortConfig]
+  );
+  const recentReports = useMemo(
+    () =>
+      sortRows(dashboard?.recent_reports || [], reportSortConfig, (report, key) => {
+        if (key === "id") return report?.id;
+        if (key === "reason") return report?.subject || report?.message || "Reported content";
+        if (key === "created_at") return report?.created_at;
+        if (key === "status") return report?.status;
+        return report?.[key];
+      }),
+    [dashboard?.recent_reports, reportSortConfig]
+  );
+  const handleOrderSort = (key) => {
+    setOrderSortConfig((previous) => toggleSortConfig(previous, key));
+  };
+  const handleReportSort = (key) => {
+    setReportSortConfig((previous) => toggleSortConfig(previous, key));
+  };
 
   return (
     <AdminShell
@@ -113,8 +164,15 @@ export default function AdminOverview({ onNavigate, token, user, onLogout }) {
       ) : null}
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-3 xl:grid-cols-4">
-        {cards.map(([label, value, icon, tone]) => (
-          <StatCard key={label} label={label} value={loading ? "..." : value ?? 0} icon={icon} tone={tone} />
+        {cards.map((card) => (
+          <StatCard
+            key={card.label}
+            label={card.label}
+            value={loading ? "..." : card.value ?? 0}
+            icon={card.icon}
+            tone={card.tone}
+            onClick={card.pageKey ? () => onNavigate?.(card.pageKey) : undefined}
+          />
         ))}
       </div>
 
@@ -130,14 +188,14 @@ export default function AdminOverview({ onNavigate, token, user, onLogout }) {
             <table className="w-full text-left">
               <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
                 <tr>
-                  <th className="px-5 py-3">Order</th>
-                  <th className="px-5 py-3">Customer</th>
-                  <th className="px-5 py-3">Total</th>
-                  <th className="px-5 py-3">Status</th>
+                  <SortableTh className="px-5 py-3" label="Order" sortKey="id" sortConfig={orderSortConfig} onSort={handleOrderSort} />
+                  <SortableTh className="px-5 py-3" label="Customer" sortKey="customer" sortConfig={orderSortConfig} onSort={handleOrderSort} />
+                  <SortableTh className="px-5 py-3" label="Total" sortKey="total" sortConfig={orderSortConfig} onSort={handleOrderSort} />
+                  <SortableTh className="px-5 py-3" label="Status" sortKey="status" sortConfig={orderSortConfig} onSort={handleOrderSort} />
                 </tr>
               </thead>
               <tbody className="divide-y divide-primary/5">
-                {(dashboard?.recent_orders || []).map((order) => (
+                {recentOrders.map((order) => (
                   <tr key={order.id} className="hover:bg-slate-50">
                     <td className="px-5 py-4 font-bold text-primary">#{order.id}</td>
                     <td className="px-5 py-4 text-sm">{order?.customer?.name || `Customer #${order.customer_id || "-"}`}</td>
@@ -161,14 +219,14 @@ export default function AdminOverview({ onNavigate, token, user, onLogout }) {
             <table className="w-full text-left">
               <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
                 <tr>
-                  <th className="px-5 py-3">Report</th>
-                  <th className="px-5 py-3">Reason</th>
-                  <th className="px-5 py-3">Date</th>
-                  <th className="px-5 py-3">Status</th>
+                  <SortableTh className="px-5 py-3" label="Report" sortKey="id" sortConfig={reportSortConfig} onSort={handleReportSort} />
+                  <SortableTh className="px-5 py-3" label="Reason" sortKey="reason" sortConfig={reportSortConfig} onSort={handleReportSort} />
+                  <SortableTh className="px-5 py-3" label="Date" sortKey="created_at" sortConfig={reportSortConfig} onSort={handleReportSort} />
+                  <SortableTh className="px-5 py-3" label="Status" sortKey="status" sortConfig={reportSortConfig} onSort={handleReportSort} />
                 </tr>
               </thead>
               <tbody className="divide-y divide-primary/5">
-                {(dashboard?.recent_reports || []).map((report) => (
+                {recentReports.map((report) => (
                   <tr key={report.id} className="hover:bg-slate-50">
                     <td className="px-5 py-4 font-bold text-primary">#{report.id}</td>
                     <td className="px-5 py-4 text-sm">{report.subject || report.message || "Reported content"}</td>
