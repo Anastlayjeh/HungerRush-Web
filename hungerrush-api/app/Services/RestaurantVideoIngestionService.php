@@ -37,14 +37,18 @@ class RestaurantVideoIngestionService
             throw new RuntimeException('The uploaded video could not be read.');
         }
 
-        $requiresRemoteModeration = $this->requiresRemoteModeration();
+        $streamProvider = $this->streamProvider();
+        $requiresRemoteModeration = $streamProvider === 'local' || ! $this->localProbingEnabled();
         $moderation = $requiresRemoteModeration
             ? $this->pendingModerationReport()
             : $this->foodVideoModerationService->moderate($videoPath);
 
-        if ($this->streamProvider() === 'local') {
+        if ($requiresRemoteModeration) {
+            $this->moderationVideoUrl = $this->storeTemporaryModerationVideo($videoFile, $restaurant);
+        }
+
+        if ($streamProvider === 'local') {
             $videoAttributes = $this->storeLocalVideo($videoFile, $restaurant, $moderation);
-            $this->moderationVideoUrl = $videoAttributes['media_url'];
 
             return [
                 'video_attributes' => $videoAttributes,
@@ -60,10 +64,6 @@ class RestaurantVideoIngestionService
             throw new RuntimeException(
                 'Cloudflare Stream did not return an HLS playback URL. Set CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN if your account requires derived playback URLs.'
             );
-        }
-
-        if ($requiresRemoteModeration) {
-            $this->moderationVideoUrl = $this->storeTemporaryModerationVideo($videoFile, $restaurant);
         }
 
         return [
@@ -114,20 +114,32 @@ class RestaurantVideoIngestionService
     {
         $workerUrl = rtrim((string) config('services.video_worker.url', ''), '/');
         $workerToken = (string) config('services.video_worker.token', '');
-        $videoUrl = (string) ($sourceVideoUrl ?: ($video->stream_hls_url ?: $video->media_url));
+        $moderationVideoUrl = trim((string) $sourceVideoUrl);
 
-        if ($workerUrl === '' || $videoUrl === '') {
-            Log::warning('Video worker moderation request skipped because configuration or video URL is missing.', [
+        if ($this->isCloudflarePlaybackUrl($moderationVideoUrl)) {
+            Log::error('Video worker moderation request blocked because the worker video URL points to Cloudflare Stream.', [
                 'video_id' => $video->id,
-                'has_worker_url' => $workerUrl !== '',
-                'has_video_url' => $videoUrl !== '',
+                'worker_video_url' => $moderationVideoUrl,
             ]);
             $this->markRemoteModerationFailed($video, 'Video moderation failed');
 
             return;
         }
 
-        $this->rememberTemporaryModerationVideoPath($video, $videoUrl);
+        $moderationVideoUrl = $this->workerModerationVideoUrl($moderationVideoUrl);
+
+        if ($workerUrl === '' || $moderationVideoUrl === '') {
+            Log::warning('Video worker moderation request skipped because configuration or video URL is missing.', [
+                'video_id' => $video->id,
+                'has_worker_url' => $workerUrl !== '',
+                'has_video_url' => $moderationVideoUrl !== '',
+            ]);
+            $this->markRemoteModerationFailed($video, 'Video moderation failed');
+
+            return;
+        }
+
+        $this->rememberTemporaryModerationVideoPath($video, $moderationVideoUrl);
 
         try {
             $pendingRequest = Http::acceptJson()
@@ -137,9 +149,14 @@ class RestaurantVideoIngestionService
                 $pendingRequest = $pendingRequest->withHeaders(['X-Video-Worker-Token' => $workerToken]);
             }
 
+            Log::info('Dispatching video moderation worker', [
+                'video_id' => $video->id,
+                'worker_video_url' => $moderationVideoUrl,
+            ]);
+
             $response = $pendingRequest->post("{$workerUrl}/moderate-video", [
                 'video_id' => $video->id,
-                'video_url' => $videoUrl,
+                'video_url' => $moderationVideoUrl,
                 'callback_url' => (string) config('services.video_worker.callback_url'),
             ]);
 
@@ -173,7 +190,11 @@ class RestaurantVideoIngestionService
 
     private function storeTemporaryModerationVideo(UploadedFile $videoFile, Restaurant $restaurant): string
     {
-        $path = $videoFile->storePublicly("moderation-videos/restaurants/{$restaurant->id}", 'public');
+        $path = $videoFile->storePubliclyAs(
+            "moderation-videos/restaurants/{$restaurant->id}",
+            Str::uuid() . '.mp4',
+            'public'
+        );
 
         if (! is_string($path) || $path === '') {
             throw new RuntimeException('The uploaded video could not be stored for moderation.');
@@ -207,6 +228,12 @@ class RestaurantVideoIngestionService
 
     private function publicDiskUrl(string $path): string
     {
+        $configuredUrl = rtrim((string) config('filesystems.disks.public.url', ''), '/');
+
+        if ($configuredUrl !== '') {
+            return "{$configuredUrl}/" . ltrim($path, '/');
+        }
+
         $videoUrl = Storage::disk('public')->url($path);
 
         if (! Str::startsWith($videoUrl, ['http://', 'https://'])) {
@@ -252,6 +279,39 @@ class RestaurantVideoIngestionService
     private function temporaryModerationVideoCacheKey(Video $video): string
     {
         return "video-moderation-path:{$video->id}";
+    }
+
+    private function workerModerationVideoUrl(?string $sourceVideoUrl): string
+    {
+        $videoUrl = trim((string) $sourceVideoUrl);
+
+        if (
+            $videoUrl === ''
+            || $this->isCloudflarePlaybackUrl($videoUrl)
+            || ! $this->isTemporaryModerationVideoUrl($videoUrl)
+        ) {
+            return '';
+        }
+
+        return $videoUrl;
+    }
+
+    private function isCloudflarePlaybackUrl(string $videoUrl): bool
+    {
+        $normalizedUrl = strtolower($videoUrl);
+
+        return Str::contains($normalizedUrl, [
+            'cloudflarestream.com',
+            '/manifest/video.m3u8',
+            '/manifest/video.mpd',
+        ]);
+    }
+
+    private function isTemporaryModerationVideoUrl(string $videoUrl): bool
+    {
+        $path = $this->publicDiskPathFromUrl($videoUrl);
+
+        return $path !== null && Str::startsWith($path, 'moderation-videos/restaurants/');
     }
 
     private function markRemoteModerationFailed(Video $video, string $reason): void
