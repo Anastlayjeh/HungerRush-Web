@@ -67,13 +67,25 @@ class VideoController extends Controller
         $this->assertMenuItemBelongsToRestaurant($restaurant, $validated['menu_item_id'] ?? null);
 
         $streamData = $restaurantVideoIngestionService->ingest($request->file('video'), $restaurant);
-        $status = ($streamData['stream_ready'] ?? false) ? 'published' : ($validated['status'] ?? 'draft');
+        $requiresRemoteModeration = $restaurantVideoIngestionService->requiresRemoteModeration();
+        $status = (! $requiresRemoteModeration) && ($streamData['stream_ready'] ?? false)
+            ? 'published'
+            : ($validated['status'] ?? 'draft');
+
+        if ($requiresRemoteModeration) {
+            $status = 'draft';
+        }
+
         $video = $restaurant->videos()->create([
             ...Arr::except($validated, ['video']),
             ...$streamData,
             'status' => $status,
             'published_at' => $status === 'published' ? ($validated['published_at'] ?? now()) : null,
         ]);
+
+        if ($requiresRemoteModeration) {
+            $restaurantVideoIngestionService->requestRemoteModeration($video);
+        }
 
         $video->load('menuItem:id,name,price,is_available')
             ->loadCount([
@@ -124,7 +136,7 @@ class VideoController extends Controller
         $restaurant = $this->resolveRestaurant();
         $this->assertVideoBelongsToRestaurant($restaurant, $video);
 
-        if ($video->cloudflare_stream_uid) {
+        if ($this->streamProvider() === 'cloudflare' && $video->cloudflare_stream_uid) {
             $cloudflareStreamService->delete($video->cloudflare_stream_uid);
         }
 
@@ -204,5 +216,10 @@ class VideoController extends Controller
         } catch (\Throwable) {
             return $video;
         }
+    }
+
+    private function streamProvider(): string
+    {
+        return strtolower(trim((string) config('services.video_processing.stream_provider', 'cloudflare')));
     }
 }
