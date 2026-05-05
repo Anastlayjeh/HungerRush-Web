@@ -10,12 +10,13 @@ use App\Models\Restaurant;
 use App\Models\Video;
 use App\Services\CloudflareStreamService;
 use App\Services\RestaurantVideoIngestionService;
+use App\Services\VideoStreamStatusSyncService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 
 class VideoController extends Controller
 {
-    public function index(Request $request, CloudflareStreamService $cloudflareStreamService)
+    public function index(Request $request, VideoStreamStatusSyncService $videoStreamStatusSyncService)
     {
         $restaurant = $this->resolveRestaurant();
         $query = Video::query()
@@ -45,7 +46,7 @@ class VideoController extends Controller
         $videos = $query->paginate(20);
         $videos->setCollection(
             $videos->getCollection()->map(
-                fn (Video $video) => $this->syncPendingStreamVideo($video, $cloudflareStreamService)
+                fn (Video $video) => $this->syncVideoStreamStatus($video, $videoStreamStatusSyncService)
             )
         );
 
@@ -65,8 +66,8 @@ class VideoController extends Controller
         $validated = $request->validated();
         $this->assertMenuItemBelongsToRestaurant($restaurant, $validated['menu_item_id'] ?? null);
 
-        $status = $validated['status'] ?? 'draft';
         $streamData = $restaurantVideoIngestionService->ingest($request->file('video'), $restaurant);
+        $status = ($streamData['stream_ready'] ?? false) ? 'published' : ($validated['status'] ?? 'draft');
         $video = $restaurant->videos()->create([
             ...Arr::except($validated, ['video']),
             ...$streamData,
@@ -172,7 +173,7 @@ class VideoController extends Controller
 
     private function assertMenuItemBelongsToRestaurant(Restaurant $restaurant, int|string|null $menuItemId): void
     {
-        if (!$menuItemId) {
+        if (! $menuItemId) {
             return;
         }
 
@@ -192,27 +193,16 @@ class VideoController extends Controller
         );
     }
 
-    private function syncPendingStreamVideo(Video $video, CloudflareStreamService $cloudflareStreamService): Video
+    private function syncVideoStreamStatus(Video $video, VideoStreamStatusSyncService $videoStreamStatusSyncService): Video
     {
-        if (! $video->cloudflare_stream_uid || $video->stream_ready) {
+        if (! $video->cloudflare_stream_uid) {
             return $video;
         }
 
         try {
-            $stream = $cloudflareStreamService->get($video->cloudflare_stream_uid);
-            $video->forceFill([
-                'media_url' => $stream['playback_hls_url'] ?: $video->media_url,
-                'thumbnail_url' => $stream['thumbnail_url'] ?: $video->thumbnail_url,
-                'stream_status' => $stream['status'] ?: $video->stream_status,
-                'stream_ready' => $stream['ready_to_stream'],
-                'stream_hls_url' => $stream['playback_hls_url'] ?: $video->stream_hls_url,
-                'stream_dash_url' => $stream['playback_dash_url'] ?: $video->stream_dash_url,
-                'stream_preview_url' => $stream['preview_url'] ?: $video->stream_preview_url,
-            ])->save();
+            return $videoStreamStatusSyncService->syncVideo($video);
         } catch (\Throwable) {
             return $video;
         }
-
-        return $video->refresh();
     }
 }

@@ -14,12 +14,18 @@ use Illuminate\Support\Str;
 
 class CustomerVideoRecommendationService
 {
+    public function __construct(
+        private readonly VideoStreamStatusSyncService $videoStreamStatusSyncService,
+    ) {}
+
     public function buildFeedFor(User $user, array $filters = []): array
     {
         $page = max(1, (int) ($filters['page'] ?? 1));
         $perPage = min(30, max(1, (int) ($filters['per_page'] ?? 15)));
         $query = trim((string) ($filters['q'] ?? ''));
         $debug = (bool) ($filters['debug'] ?? false);
+
+        $this->videoStreamStatusSyncService->syncPendingVideos();
 
         $videos = $this->candidateVideos($query);
         $signals = $this->loadSignals($user, $query);
@@ -129,6 +135,7 @@ class CustomerVideoRecommendationService
 
                 if ($engagement->type === 'view') {
                     $recentViewCounts[$engagement->video_id] = ($recentViewCounts[$engagement->video_id] ?? 0) + 1;
+
                     return;
                 }
 
