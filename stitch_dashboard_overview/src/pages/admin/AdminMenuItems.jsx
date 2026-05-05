@@ -10,9 +10,12 @@ import {
   PaginationControls,
   SearchableSelect,
   SearchField,
+  SortableTh,
   StatusBadge,
   TableShell,
+  sortRows,
   toMoney,
+  toggleSortConfig,
 } from "../../components/admin/AdminUI.jsx";
 import { api } from "../../lib/api.js";
 import { mockAdminData } from "../../lib/adminData.js";
@@ -70,6 +73,7 @@ export default function AdminMenuItems({ onNavigate, token, user, onLogout }) {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [availabilityFilter, setAvailabilityFilter] = useState("all");
+  const [sortConfig, setSortConfig] = useState({ key: "id", direction: "desc" });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(true);
@@ -222,9 +226,22 @@ export default function AdminMenuItems({ onNavigate, token, user, onLogout }) {
   }, [items, search, categoryFilter, availabilityFilter]);
 
   const visibleItems = useMemo(
-    () => filteredItems.slice((page - 1) * pageSize, page * pageSize),
-    [filteredItems, page, pageSize]
+    () =>
+      sortRows(filteredItems, sortConfig, (item, key) => {
+        if (key === "id") return item?.id;
+        if (key === "name") return item?.name;
+        if (key === "restaurant") return restaurantNameFromItem(item);
+        if (key === "category") return item?.category;
+        if (key === "price") return Number(item?.price || 0);
+        if (key === "availability") return item?.availability;
+        return item?.[key];
+      }).slice((page - 1) * pageSize, page * pageSize),
+    [filteredItems, sortConfig, page, pageSize]
   );
+
+  const handleSort = (key) => {
+    setSortConfig((previous) => toggleSortConfig(previous, key));
+  };
 
   const updateItem = (target, patch, message) => {
     setItems((previous) =>
@@ -268,7 +285,7 @@ export default function AdminMenuItems({ onNavigate, token, user, onLogout }) {
       user={user}
       onLogout={onLogout}
       title="Menu Item Management"
-      headerActions={<SearchField value={search} onChange={setSearch} placeholder="Search menu items or restaurants..." />}
+      headerActions={<SearchField value={search} onChange={setSearch} placeholder="search for restaurants" />}
     >
       {usingMock ? (
         <Alert type="warning">
@@ -296,23 +313,17 @@ export default function AdminMenuItems({ onNavigate, token, user, onLogout }) {
         />
       </div>
 
-      {selectedRestaurant ? (
-        <div className="mb-4 rounded-xl border border-primary/10 bg-white px-4 py-3 text-sm text-slate-600">
-          Showing menu for <strong className="text-slate-900">{selectedRestaurant.name}</strong>
-        </div>
-      ) : null}
-
       <TableShell>
         <table className="w-full text-left">
           <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
             <tr>
-              <th className="px-6 py-4">Item ID</th>
+              <SortableTh label="Item ID" sortKey="id" sortConfig={sortConfig} onSort={handleSort} />
               <th className="px-6 py-4">Image</th>
-              <th className="px-6 py-4">Item</th>
-              <th className="px-6 py-4">Restaurant</th>
-              <th className="px-6 py-4">Category</th>
-              <th className="px-6 py-4">Price</th>
-              <th className="px-6 py-4">Availability</th>
+              <SortableTh label="Item" sortKey="name" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Restaurant" sortKey="restaurant" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Category" sortKey="category" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Price" sortKey="price" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Availability" sortKey="availability" sortConfig={sortConfig} onSort={handleSort} />
               <th className="px-6 py-4 text-right">Actions</th>
             </tr>
           </thead>

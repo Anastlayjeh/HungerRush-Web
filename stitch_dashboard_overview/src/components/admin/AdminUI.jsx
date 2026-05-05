@@ -221,6 +221,100 @@ export function TableShell({ children }) {
   );
 }
 
+function toComparable(value) {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "number") return Number.isNaN(value) ? null : value;
+  if (value instanceof Date) {
+    const time = value.getTime();
+    return Number.isNaN(time) ? null : time;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsedDate = Date.parse(trimmed);
+    if (!Number.isNaN(parsedDate)) return parsedDate;
+    return trimmed.toLowerCase();
+  }
+
+  return String(value).toLowerCase();
+}
+
+function compareSortValues(left, right) {
+  const a = toComparable(left);
+  const b = toComparable(right);
+
+  if (a === b) return 0;
+  if (a === null) return 1;
+  if (b === null) return -1;
+
+  if (typeof a === "number" && typeof b === "number") {
+    return a - b;
+  }
+
+  return String(a).localeCompare(String(b), undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
+export function sortRows(rows, sortConfig, getValue) {
+  if (!Array.isArray(rows) || !rows.length || !sortConfig?.key || typeof getValue !== "function") {
+    return rows;
+  }
+
+  const direction = sortConfig.direction === "asc" ? 1 : -1;
+
+  return [...rows].sort((left, right) => {
+    const diff = compareSortValues(getValue(left, sortConfig.key), getValue(right, sortConfig.key));
+    return diff * direction;
+  });
+}
+
+export function toggleSortConfig(current, key) {
+  if (!key) return current;
+  if (!current || current.key !== key) {
+    return { key, direction: "asc" };
+  }
+
+  return {
+    key,
+    direction: current.direction === "asc" ? "desc" : "asc",
+  };
+}
+
+export function SortableTh({
+  label,
+  sortKey,
+  sortConfig,
+  onSort,
+  className = "px-6 py-4",
+}) {
+  const isActive = sortConfig?.key === sortKey;
+  const icon = isActive
+    ? sortConfig.direction === "asc"
+      ? "arrow_upward"
+      : "arrow_downward"
+    : "unfold_more";
+
+  return (
+    <th className={className}>
+      <button
+        className={
+          isActive
+            ? "inline-flex items-center gap-1 font-bold text-primary hover:text-primary/80"
+            : "inline-flex items-center gap-1 font-bold text-slate-500 hover:text-slate-700"
+        }
+        type="button"
+        onClick={() => onSort?.(sortKey)}
+      >
+        <span>{label}</span>
+        <span className="material-symbols-outlined text-base leading-none">{icon}</span>
+      </button>
+    </th>
+  );
+}
+
 export function PaginationControls({
   page,
   pageSize,

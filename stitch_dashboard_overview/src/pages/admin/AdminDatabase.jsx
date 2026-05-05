@@ -1,6 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AdminShell from "../../components/AdminShell.jsx";
-import { ActionButton, Alert, TableShell, formatDateTime } from "../../components/admin/AdminUI.jsx";
+import {
+  ActionButton,
+  Alert,
+  SortableTh,
+  TableShell,
+  formatDateTime,
+  sortRows,
+  toggleSortConfig,
+} from "../../components/admin/AdminUI.jsx";
 import { api } from "../../lib/api.js";
 import { createDatabaseStats, mockAdminData } from "../../lib/adminData.js";
 
@@ -25,6 +33,7 @@ export default function AdminDatabase({ onNavigate, token, user, onLogout }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [usingMock, setUsingMock] = useState(false);
+  const [sortConfig, setSortConfig] = useState({ key: "created_at", direction: "desc" });
 
   const loadStats = async () => {
     setLoading(true);
@@ -65,6 +74,20 @@ export default function AdminDatabase({ onNavigate, token, user, onLogout }) {
     setSuccess(`${label} placeholder started. Connect this button to a safe backend job later.`);
   };
 
+  const sortedActivity = useMemo(
+    () =>
+      sortRows(activity, sortConfig, (entry, key) => {
+        if (key === "label") return entry?.label;
+        if (key === "created_at") return entry?.created_at;
+        return entry?.[key];
+      }),
+    [activity, sortConfig]
+  );
+
+  const handleSort = (key) => {
+    setSortConfig((previous) => toggleSortConfig(previous, key));
+  };
+
   return (
     <AdminShell
       activePage="adminDatabase"
@@ -101,13 +124,13 @@ export default function AdminDatabase({ onNavigate, token, user, onLogout }) {
             <table className="w-full text-left">
               <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
                 <tr>
-                  <th className="px-6 py-4">Activity</th>
-                  <th className="px-6 py-4">Time</th>
+                  <SortableTh label="Activity" sortKey="label" sortConfig={sortConfig} onSort={handleSort} />
+                  <SortableTh label="Time" sortKey="created_at" sortConfig={sortConfig} onSort={handleSort} />
                 </tr>
               </thead>
               <tbody className="divide-y divide-primary/5">
-                {activity.length ? (
-                  activity.map((entry) => (
+                {sortedActivity.length ? (
+                  sortedActivity.map((entry) => (
                     <tr key={entry.id} className="hover:bg-slate-50">
                       <td className="px-6 py-4 text-sm font-semibold">{entry.label}</td>
                       <td className="px-6 py-4 text-sm text-slate-500">{formatDateTime(entry.created_at)}</td>

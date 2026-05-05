@@ -980,7 +980,11 @@ INSERT INTO `restaurant_registrations` (`id`, `owner_user_id`, `restaurant_name`
 (3, 1, 'Harbor Tacos Lab', 'Street taco concept currently under review.', 'owner@hungerrush.local', '01111111111', '{\"source\":\"seed_sample\",\"documents_submitted\":false}', 'approved', 58, '2026-05-04 13:24:50', 'Approved from admin panel.', '2026-04-28 13:18:00', '2026-05-04 13:24:50'),
 (4, 52, 'Noodle Harbor', 'Pan-Asian noodle station.', 'test@gmail.com', NULL, '{\"source\":\"seed_sample\",\"documents_submitted\":true}', 'approved', 58, '2026-04-30 13:18:00', 'All required documents verified.', '2026-04-26 13:18:00', '2026-04-30 13:18:00'),
 (5, 1, 'Pita Avenue', 'Wraps and pita pockets with late-night menu.', 'owner@hungerrush.local', '01111111111', '{\"source\":\"seed_sample\",\"documents_submitted\":true}', 'rejected', 58, '2026-05-01 13:18:00', 'Missing municipality license copy.', '2026-04-27 13:18:00', '2026-05-01 13:18:00'),
-(6, 52, 'Sizzle Cart Co', 'Late-night grill cart pilot branch application.', 'test@gmail.com', NULL, '{\"source\":\"seed_sample\",\"documents_submitted\":true}', 'approved', 58, '2026-05-04 13:24:50', 'Approved from admin panel.', '2026-05-02 13:18:00', '2026-05-04 13:24:50');
+(6, 52, 'Sizzle Cart Co', 'Late-night grill cart pilot branch application.', 'test@gmail.com', NULL, '{\"source\":\"seed_sample\",\"documents_submitted\":true}', 'approved', 58, '2026-05-04 13:24:50', 'Approved from admin panel.', '2026-05-02 13:18:00', '2026-05-04 13:24:50'),
+(7, 900101, 'Olive Grove Kitchen', 'Mediterranean lunch bowls and charcoal wraps focused on office deliveries.', 'owner.olivegrove@hungerrush.local', '+96170010101', '{\"source\":\"seed_sample\",\"documents_submitted\":true,\"owner_name\":\"Rami Zgheib\"}', 'pending', NULL, NULL, NULL, '2026-05-03 10:25:00', '2026-05-03 10:25:00'),
+(8, 900102, 'Sunset Shawarma Station', 'Shawarma-focused concept with rotating sauces and late-night delivery.', 'owner.sunsetshawarma@hungerrush.local', '+96170010102', '{\"source\":\"seed_sample\",\"documents_submitted\":true,\"owner_name\":\"Nadine Hallak\"}', 'pending', NULL, NULL, NULL, '2026-05-04 11:25:00', '2026-05-04 11:25:00'),
+(9, 900103, 'Bamboo Wok Bar', 'Pan-Asian wok dishes and noodle bowls for compact, quick delivery zones.', 'owner.bamboowok@hungerrush.local', '+96170010103', '{\"source\":\"seed_sample\",\"documents_submitted\":true,\"owner_name\":\"Hassan Dalloul\"}', 'pending', NULL, NULL, NULL, '2026-05-04 12:25:00', '2026-05-04 12:25:00'),
+(10, 900104, 'Brick Oven Slices', 'Neighborhood pizza counter requesting onboarding for weekend dinner peaks.', 'owner.brickoven@hungerrush.local', '+96170010104', '{\"source\":\"seed_sample\",\"documents_submitted\":true,\"owner_name\":\"Mira Souaid\"}', 'pending', NULL, NULL, NULL, '2026-05-05 10:25:00', '2026-05-05 10:25:00');
 
 -- --------------------------------------------------------
 
@@ -1630,7 +1634,7 @@ ALTER TABLE `restaurant_branches`
 -- AUTO_INCREMENT for table `restaurant_registrations`
 --
 ALTER TABLE `restaurant_registrations`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT for table `reviews`

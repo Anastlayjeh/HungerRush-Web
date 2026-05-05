@@ -3,17 +3,21 @@ import AdminShell from "../../components/AdminShell.jsx";
 import {
   ActionButton,
   Alert,
+  ConfirmModal,
   EmptyState,
   FilterSelect,
   Modal,
   PaginationControls,
   SearchableSelect,
   SearchField,
+  SortableTh,
   StatusBadge,
   TableShell,
   formatDate,
   formatDateTime,
   normalizeStatus,
+  sortRows,
+  toggleSortConfig,
 } from "../../components/admin/AdminUI.jsx";
 import { api } from "../../lib/api.js";
 import { mockAdminData } from "../../lib/adminData.js";
@@ -132,12 +136,21 @@ function filterVideos(videos, filters) {
     });
 }
 
+function createVideoEditorState(video) {
+  return {
+    title: video?.title || "",
+    description: video?.description || "",
+    status: String(video?.status || "draft"),
+  };
+}
+
 export default function AdminVideos({ onNavigate, token, user, onLogout }) {
   const [restaurants, setRestaurants] = useState([]);
   const [selectedRestaurantId, setSelectedRestaurantId] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [streamFilter, setStreamFilter] = useState("all");
+  const [sortConfig, setSortConfig] = useState({ key: "created_at", direction: "desc" });
   const [createdFrom, setCreatedFrom] = useState("");
   const [createdTo, setCreatedTo] = useState("");
   const [page, setPage] = useState(1);
@@ -146,8 +159,14 @@ export default function AdminVideos({ onNavigate, token, user, onLogout }) {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [usingMock, setUsingMock] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState(null);
+  const [editingVideo, setEditingVideo] = useState(null);
+  const [editorState, setEditorState] = useState(createVideoEditorState(null));
+  const [confirm, setConfirm] = useState(null);
+  const [savingVideoId, setSavingVideoId] = useState(null);
+  const [deletingVideoId, setDeletingVideoId] = useState(null);
 
   useEffect(() => {
     if (!token) return undefined;
@@ -177,6 +196,10 @@ export default function AdminVideos({ onNavigate, token, user, onLogout }) {
   useEffect(() => {
     setPage(1);
   }, [selectedRestaurantId, search, statusFilter, streamFilter, createdFrom, createdTo, pageSize]);
+
+  const handleSort = (key) => {
+    setSortConfig((previous) => toggleSortConfig(previous, key));
+  };
 
   const restaurantOptions = useMemo(
     () =>
@@ -258,6 +281,121 @@ export default function AdminVideos({ onNavigate, token, user, onLogout }) {
     createdTo,
   ]);
 
+  const sortedVideos = useMemo(
+    () =>
+      sortRows(videos, sortConfig, (video, key) => {
+        if (key === "id") return video?.id;
+        if (key === "title") return video?.title;
+        if (key === "restaurant") return restaurantLabel(video);
+        if (key === "menu_item") return menuItemLabel(video);
+        if (key === "status") return video?.status;
+        if (key === "stream") return video?.stream_ready ? "ready" : (video?.stream_status || "processing");
+        if (key === "created_at") return video?.created_at;
+        if (key === "performance") return Number(video?.views_count || 0);
+        return video?.[key];
+      }),
+    [videos, sortConfig]
+  );
+
+  const updateVideoState = (nextVideo) => {
+    const normalized = normalizeVideo(nextVideo);
+    setVideos((previous) =>
+      previous.map((video) => (video.id === normalized.id ? normalized : video))
+    );
+    setSelectedVideo((previous) => (previous?.id === normalized.id ? normalized : previous));
+    setEditingVideo((previous) => (previous?.id === normalized.id ? normalized : previous));
+  };
+
+  const removeVideoState = (videoId) => {
+    setVideos((previous) => previous.filter((video) => video.id !== videoId));
+    setSelectedVideo((previous) => (previous?.id === videoId ? null : previous));
+    setEditingVideo((previous) => (previous?.id === videoId ? null : previous));
+    setTotal((previous) => Math.max(0, previous - 1));
+  };
+
+  const openEditModal = (video) => {
+    setEditingVideo(video);
+    setEditorState(createVideoEditorState(video));
+    setError("");
+  };
+
+  const handleSaveVideo = async () => {
+    if (!editingVideo?.id) return;
+
+    const title = editorState.title.trim();
+    if (!title) {
+      setError("Video title is required.");
+      return;
+    }
+
+    setSavingVideoId(editingVideo.id);
+    setError("");
+
+    const description = editorState.description.trim();
+    try {
+      if (usingMock) {
+        const fallbackSource = videos.find((video) => video.id === editingVideo.id) || editingVideo;
+        const nextStatus = editorState.status || fallbackSource.status || "draft";
+        const nowIso = new Date().toISOString();
+        const nextVideo = normalizeVideo({
+          ...fallbackSource,
+          title,
+          description,
+          status: nextStatus,
+          published_at:
+            nextStatus === "published"
+              ? fallbackSource.published_at || nowIso
+              : null,
+          updated_at: nowIso,
+        });
+
+        updateVideoState(nextVideo);
+      } else {
+        const updated = await api.updateAdminVideo(token, editingVideo.id, {
+          title,
+          description: description || null,
+          status: editorState.status,
+        });
+        updateVideoState(updated);
+      }
+
+      setSuccess(`Video #${editingVideo.id} updated.`);
+      setEditingVideo(null);
+    } catch (requestError) {
+      setError(requestError?.message || "Failed to update video.");
+    } finally {
+      setSavingVideoId(null);
+    }
+  };
+
+  const confirmDeleteVideo = (video) => {
+    if (!video?.id) return;
+
+    setConfirm({
+      title: "Delete Video",
+      message: `Video #${video.id} will be permanently removed from the feed.`,
+      confirmLabel: "Delete",
+      onConfirm: async () => {
+        setDeletingVideoId(video.id);
+        setError("");
+
+        try {
+          if (!usingMock) {
+            await api.deleteAdminVideo(token, video.id);
+          }
+
+          removeVideoState(video.id);
+          setSuccess(`Video #${video.id} deleted.`);
+          setConfirm(null);
+        } catch (requestError) {
+          setError(requestError?.message || "Failed to delete video.");
+        } finally {
+          setDeletingVideoId(null);
+        }
+      },
+    });
+  };
+
   return (
     <AdminShell
       activePage="adminVideos"
@@ -272,6 +410,7 @@ export default function AdminVideos({ onNavigate, token, user, onLogout }) {
       ) : (
         <Alert>{error}</Alert>
       )}
+      <Alert type="success">{success}</Alert>
 
       <div className="mb-5 flex flex-wrap items-end gap-3">
         <SearchableSelect
@@ -307,20 +446,20 @@ export default function AdminVideos({ onNavigate, token, user, onLogout }) {
         <table className="w-full text-left">
           <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
             <tr>
-              <th className="px-6 py-4">Video ID</th>
-              <th className="px-6 py-4">Preview</th>
-              <th className="px-6 py-4">Restaurant</th>
-              <th className="px-6 py-4">Menu Item</th>
-              <th className="px-6 py-4">Status</th>
-              <th className="px-6 py-4">Stream</th>
-              <th className="px-6 py-4">Created</th>
-              <th className="px-6 py-4">Performance</th>
+              <SortableTh label="Video ID" sortKey="id" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Preview" sortKey="title" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Restaurant" sortKey="restaurant" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Menu Item" sortKey="menu_item" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Status" sortKey="status" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Stream" sortKey="stream" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Created" sortKey="created_at" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Performance" sortKey="performance" sortConfig={sortConfig} onSort={handleSort} />
               <th className="px-6 py-4 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-primary/5">
-            {videos.length ? (
-              videos.map((row) => (
+            {sortedVideos.length ? (
+              sortedVideos.map((row) => (
                 <tr key={row.id} className="hover:bg-slate-50">
                   <td className="px-6 py-4 font-bold text-primary">#{row.id}</td>
                   <td className="px-6 py-4">
@@ -362,6 +501,22 @@ export default function AdminVideos({ onNavigate, token, user, onLogout }) {
                       <ActionButton icon="visibility" onClick={() => setSelectedVideo(row)}>
                         View
                       </ActionButton>
+                      <ActionButton
+                        icon="edit"
+                        tone="primary"
+                        disabled={savingVideoId === row.id || deletingVideoId === row.id}
+                        onClick={() => openEditModal(row)}
+                      >
+                        Edit
+                      </ActionButton>
+                      <ActionButton
+                        icon="delete"
+                        tone="danger"
+                        disabled={savingVideoId === row.id || deletingVideoId === row.id}
+                        onClick={() => confirmDeleteVideo(row)}
+                      >
+                        Delete
+                      </ActionButton>
                     </div>
                   </td>
                 </tr>
@@ -390,6 +545,26 @@ export default function AdminVideos({ onNavigate, token, user, onLogout }) {
           title={selectedVideo.title || `Video #${selectedVideo.id}`}
           subtitle={`Video #${selectedVideo.id}`}
           onClose={() => setSelectedVideo(null)}
+          footer={
+            <>
+              <ActionButton
+                icon="edit"
+                tone="primary"
+                disabled={savingVideoId === selectedVideo.id || deletingVideoId === selectedVideo.id}
+                onClick={() => openEditModal(selectedVideo)}
+              >
+                Edit Caption
+              </ActionButton>
+              <ActionButton
+                icon="delete"
+                tone="danger"
+                disabled={savingVideoId === selectedVideo.id || deletingVideoId === selectedVideo.id}
+                onClick={() => confirmDeleteVideo(selectedVideo)}
+              >
+                Delete
+              </ActionButton>
+            </>
+          }
         >
           <div className="space-y-4 text-sm">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -421,6 +596,71 @@ export default function AdminVideos({ onNavigate, token, user, onLogout }) {
           </div>
         </Modal>
       ) : null}
+
+      {editingVideo ? (
+        <Modal
+          title={`Edit Video #${editingVideo.id}`}
+          subtitle="Update caption text and feed visibility."
+          onClose={() => setEditingVideo(null)}
+          maxWidth="max-w-xl"
+          footer={
+            <>
+              <ActionButton onClick={() => setEditingVideo(null)}>Cancel</ActionButton>
+              <ActionButton
+                tone="primary"
+                icon="save"
+                disabled={savingVideoId === editingVideo.id}
+                onClick={handleSaveVideo}
+              >
+                {savingVideoId === editingVideo.id ? "Saving..." : "Save"}
+              </ActionButton>
+            </>
+          }
+        >
+          <div className="space-y-4 text-sm">
+            <label className="block">
+              <span className="text-xs font-bold uppercase text-slate-500">Title</span>
+              <input
+                className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-primary/30 focus:ring-2 focus:ring-primary/20"
+                type="text"
+                value={editorState.title}
+                onChange={(event) =>
+                  setEditorState((previous) => ({ ...previous, title: event.target.value }))
+                }
+                placeholder="Video title"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs font-bold uppercase text-slate-500">Caption</span>
+              <textarea
+                className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-primary/30 focus:ring-2 focus:ring-primary/20"
+                rows={5}
+                value={editorState.description}
+                onChange={(event) =>
+                  setEditorState((previous) => ({ ...previous, description: event.target.value }))
+                }
+                placeholder="Write or edit the video caption"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs font-bold uppercase text-slate-500">Status</span>
+              <select
+                className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-primary/30 focus:ring-2 focus:ring-primary/20"
+                value={editorState.status}
+                onChange={(event) =>
+                  setEditorState((previous) => ({ ...previous, status: event.target.value }))
+                }
+              >
+                <option value="draft">Draft</option>
+                <option value="published">Published</option>
+                <option value="archived">Archived</option>
+              </select>
+            </label>
+          </div>
+        </Modal>
+      ) : null}
+
+      <ConfirmModal {...(confirm || {})} onCancel={() => setConfirm(null)} />
     </AdminShell>
   );
 }

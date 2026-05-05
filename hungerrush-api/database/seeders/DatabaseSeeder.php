@@ -17,7 +17,9 @@ class DatabaseSeeder extends Seeder
         $this->call([
             SampleUsersSeeder::class,
             SampleRestaurantCatalogSeeder::class,
+            SampleRestaurantRegistrationsSeeder::class,
             SampleOperationalDataSeeder::class,
+            SampleReportsSeeder::class,
         ]);
     }
 }

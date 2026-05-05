@@ -72,6 +72,8 @@ Route::prefix('v1')->group(function () {
             Route::get('/restaurant-registrations', [AdminDashboardController::class, 'restaurantRegistrations']);
             Route::patch('/restaurant-registrations/{registration}', [AdminDashboardController::class, 'updateRestaurantRegistration']);
             Route::get('/videos', [AdminDashboardController::class, 'videos']);
+            Route::patch('/videos/{video}', [AdminDashboardController::class, 'updateVideo']);
+            Route::delete('/videos/{video}', [AdminDashboardController::class, 'deleteVideo']);
             Route::get('/orders', [AdminDashboardController::class, 'orders']);
             Route::patch('/orders/{order}', [AdminDashboardController::class, 'updateOrder']);
             Route::get('/reports', [AdminDashboardController::class, 'reports']);

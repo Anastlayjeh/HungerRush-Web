@@ -10,11 +10,14 @@ import {
   PaginationControls,
   SearchableSelect,
   SearchField,
+  SortableTh,
   StatusBadge,
   TableShell,
   formatDate,
   formatDateTime,
   normalizeStatus,
+  sortRows,
+  toggleSortConfig,
 } from "../../components/admin/AdminUI.jsx";
 import { api } from "../../lib/api.js";
 import { mockAdminData } from "../../lib/adminData.js";
@@ -53,6 +56,7 @@ export default function AdminUsers({ onNavigate, token, user, onLogout }) {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sortConfig, setSortConfig] = useState({ key: "id", direction: "desc" });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(true);
@@ -132,9 +136,22 @@ export default function AdminUsers({ onNavigate, token, user, onLogout }) {
   }, [users, selectedUserFilterId, search, roleFilter, statusFilter]);
 
   const visibleUsers = useMemo(
-    () => filteredUsers.slice((page - 1) * pageSize, page * pageSize),
-    [filteredUsers, page, pageSize]
+    () =>
+      sortRows(filteredUsers, sortConfig, (row, key) => {
+        if (key === "id") return row?.id;
+        if (key === "name") return row?.name;
+        if (key === "email") return row?.email;
+        if (key === "role") return getUserRole(row);
+        if (key === "status") return row?.status;
+        if (key === "created_at") return row?.created_at;
+        return row?.[key];
+      }).slice((page - 1) * pageSize, page * pageSize),
+    [filteredUsers, sortConfig, page, pageSize]
   );
+
+  const handleSort = (key) => {
+    setSortConfig((previous) => toggleSortConfig(previous, key));
+  };
 
   const updateUser = (target, patch, message) => {
     setUsers((previous) =>
@@ -188,12 +205,12 @@ export default function AdminUsers({ onNavigate, token, user, onLogout }) {
         <table className="w-full text-left">
           <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
             <tr>
-              <th className="px-6 py-4">User ID</th>
-              <th className="px-6 py-4">Name</th>
-              <th className="px-6 py-4">Email</th>
-              <th className="px-6 py-4">Role</th>
-              <th className="px-6 py-4">Status</th>
-              <th className="px-6 py-4">Created</th>
+              <SortableTh label="User ID" sortKey="id" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Name" sortKey="name" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Email" sortKey="email" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Role" sortKey="role" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Status" sortKey="status" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Created" sortKey="created_at" sortConfig={sortConfig} onSort={handleSort} />
               <th className="px-6 py-4 text-right">Actions</th>
             </tr>
           </thead>

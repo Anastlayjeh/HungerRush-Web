@@ -9,10 +9,13 @@ import {
   Modal,
   PaginationControls,
   SearchField,
+  SortableTh,
   StatusBadge,
   TableShell,
   formatDate,
   normalizeStatus,
+  sortRows,
+  toggleSortConfig,
 } from "../../components/admin/AdminUI.jsx";
 import { api } from "../../lib/api.js";
 import { mockAdminData } from "../../lib/adminData.js";
@@ -64,11 +67,24 @@ function reportStatusLabel(status) {
   return normalizeStatus(status);
 }
 
+function canMarkAsReviewed(report) {
+  return String(report?.status || "open") === "open";
+}
+
+function canMarkAsResolved(report) {
+  return String(report?.status || "open") !== "resolved";
+}
+
+function canDismiss(report) {
+  return String(report?.status || "open") !== "dismissed";
+}
+
 export default function AdminReports({ onNavigate, token, user, onLogout }) {
   const [reports, setReports] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [sortConfig, setSortConfig] = useState({ key: "id", direction: "desc" });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(true);
@@ -134,9 +150,23 @@ export default function AdminReports({ onNavigate, token, user, onLogout }) {
   }, [reports, search, statusFilter, typeFilter]);
 
   const visibleReports = useMemo(
-    () => filteredReports.slice((page - 1) * pageSize, page * pageSize),
-    [filteredReports, page, pageSize]
+    () =>
+      sortRows(filteredReports, sortConfig, (report, key) => {
+        if (key === "id") return report?.id;
+        if (key === "type") return reportType(report);
+        if (key === "reason") return reportReason(report);
+        if (key === "restaurant") return reportedRestaurantName(report);
+        if (key === "reporter") return reporterName(report);
+        if (key === "status") return report?.status || "open";
+        if (key === "created_at") return report?.created_at;
+        return report?.[key];
+      }).slice((page - 1) * pageSize, page * pageSize),
+    [filteredReports, sortConfig, page, pageSize]
   );
+
+  const handleSort = (key) => {
+    setSortConfig((previous) => toggleSortConfig(previous, key));
+  };
 
   const replaceReport = (updatedReport) => {
     setReports((previous) =>
@@ -189,13 +219,13 @@ export default function AdminReports({ onNavigate, token, user, onLogout }) {
         <table className="w-full text-left">
           <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
             <tr>
-              <th className="px-6 py-4">Report ID</th>
-              <th className="px-6 py-4">Reported Item Type</th>
-              <th className="px-6 py-4">Report Reason</th>
-              <th className="px-6 py-4">Reported Restaurant</th>
-              <th className="px-6 py-4">Reported By</th>
-              <th className="px-6 py-4">Status</th>
-              <th className="px-6 py-4">Created</th>
+              <SortableTh label="Report ID" sortKey="id" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Reported Item Type" sortKey="type" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Report Reason" sortKey="reason" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Reported Restaurant" sortKey="restaurant" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Reported By" sortKey="reporter" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Status" sortKey="status" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTh label="Created" sortKey="created_at" sortConfig={sortConfig} onSort={handleSort} />
               <th className="px-6 py-4 text-right">Actions</th>
             </tr>
           </thead>
@@ -213,13 +243,15 @@ export default function AdminReports({ onNavigate, token, user, onLogout }) {
                   <td className="px-6 py-4">
                     <div className="flex justify-end gap-2">
                       <ActionButton icon="visibility" onClick={() => setSelectedReport(row)}>View</ActionButton>
-                      <ActionButton
-                        icon="fact_check"
-                        disabled={updatingReportId === row.id}
-                        onClick={() => updateReportStatus(row, "reviewing", "Marked reviewed from the admin panel.")}
-                      >
-                        Reviewed
-                      </ActionButton>
+                      {canMarkAsReviewed(row) ? (
+                        <ActionButton
+                          icon="fact_check"
+                          disabled={updatingReportId === row.id}
+                          onClick={() => updateReportStatus(row, "reviewing", "Marked reviewed from the admin panel.")}
+                        >
+                          Reviewed
+                        </ActionButton>
+                      ) : null}
                       <ActionButton
                         tone="danger"
                         icon="delete_forever"
@@ -237,29 +269,33 @@ export default function AdminReports({ onNavigate, token, user, onLogout }) {
                       >
                         Remove
                       </ActionButton>
-                      <ActionButton
-                        tone="success"
-                        icon="done_all"
-                        disabled={updatingReportId === row.id}
-                        onClick={() => updateReportStatus(row, "resolved", "Resolved from the admin panel.")}
-                      >
-                        Resolve
-                      </ActionButton>
-                      <ActionButton
-                        tone="danger"
-                        icon="close"
-                        disabled={updatingReportId === row.id}
-                        onClick={() =>
-                          setConfirm({
-                            title: "Dismiss Report",
-                            message: `Dismiss report #${row.id}?`,
-                            confirmLabel: "Dismiss",
-                            onConfirm: () => updateReportStatus(row, "dismissed", "Dismissed from the admin panel."),
-                          })
-                        }
-                      >
-                        Dismiss
-                      </ActionButton>
+                      {canMarkAsResolved(row) ? (
+                        <ActionButton
+                          tone="success"
+                          icon="done_all"
+                          disabled={updatingReportId === row.id}
+                          onClick={() => updateReportStatus(row, "resolved", "Resolved from the admin panel.")}
+                        >
+                          Resolve
+                        </ActionButton>
+                      ) : null}
+                      {canDismiss(row) ? (
+                        <ActionButton
+                          tone="danger"
+                          icon="close"
+                          disabled={updatingReportId === row.id}
+                          onClick={() =>
+                            setConfirm({
+                              title: "Dismiss Report",
+                              message: `Dismiss report #${row.id}?`,
+                              confirmLabel: "Dismiss",
+                              onConfirm: () => updateReportStatus(row, "dismissed", "Dismissed from the admin panel."),
+                            })
+                          }
+                        >
+                          Dismiss
+                        </ActionButton>
+                      ) : null}
                     </div>
                   </td>
                 </tr>

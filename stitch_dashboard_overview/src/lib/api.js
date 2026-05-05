@@ -538,6 +538,25 @@ export const api = {
     return unwrapList(payload);
   },
 
+  async updateAdminVideo(token, videoId, body) {
+    return unwrapData(
+      await request(`/v1/admin/videos/${videoId}`, {
+        method: "PATCH",
+        token,
+        body,
+      })
+    );
+  },
+
+  async deleteAdminVideo(token, videoId) {
+    return unwrapData(
+      await request(`/v1/admin/videos/${videoId}`, {
+        method: "DELETE",
+        token,
+      })
+    );
+  },
+
   async getAdminOrders(token, params = {}) {
     const payload = await request(withQuery("/v1/admin/orders", { page: params.page }), {
       method: "GET",

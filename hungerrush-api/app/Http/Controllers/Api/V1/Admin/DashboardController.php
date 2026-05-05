@@ -9,6 +9,7 @@ use App\Http\Resources\OrderResource;
 use App\Http\Resources\ReportResource;
 use App\Http\Resources\RestaurantResource;
 use App\Models\Conversation;
+use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\OrderStatusHistory;
 use App\Models\Report;
@@ -18,8 +19,10 @@ use App\Models\SupportRequest;
 use App\Models\User;
 use App\Models\UserNotification;
 use App\Models\Video;
+use App\Services\CloudflareStreamService;
 use App\Services\OrderStatusTransitionService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class DashboardController extends Controller
@@ -33,7 +36,7 @@ class DashboardController extends Controller
                 'users' => User::query()->count(),
                 'customers' => User::query()->where('role', UserRole::Customer->value)->count(),
                 'restaurant_owners' => User::query()->where('role', UserRole::RestaurantOwner->value)->count(),
-                'restaurants' => Restaurant::query()->count(),
+                'restaurants' => User::query()->where('role', UserRole::RestaurantOwner->value)->count(),
                 'active_restaurants' => Restaurant::query()->where('status', 'active')->count(),
                 'orders' => Order::query()->count(),
                 'open_reports' => Report::query()->whereIn('status', ['open', 'reviewing'])->count(),
@@ -83,7 +86,7 @@ class DashboardController extends Controller
     {
         $this->assertAdmin($request);
         $orders = Order::query()
-            ->with(['customer:id,name,email,phone', 'restaurant.branches', 'branch', 'items.menuItem.category'])
+            ->with(['customer:id,name,email,phone', 'restaurant.branches', 'branch', 'items.menuItem.category', 'statusHistory'])
             ->latest()
             ->paginate(30);
 
@@ -172,18 +175,23 @@ class DashboardController extends Controller
             'per_page' => ['nullable', 'integer', 'min:5', 'max:100'],
         ]);
 
+        $videoCountRelations = [
+            'engagements as views_count' => fn ($builder) => $builder->where('type', 'view'),
+            'engagements as likes_count' => fn ($builder) => $builder->where('type', 'like'),
+            'engagements as shares_count' => fn ($builder) => $builder->where('type', 'share'),
+        ];
+
+        if (Schema::hasTable('video_comments')) {
+            $videoCountRelations['comments as comments_count'] = fn ($builder) => $builder;
+        }
+
         $videos = Video::query()
             ->with([
                 'restaurant:id,name,owner_user_id',
                 'restaurant.owner:id,name,email,phone',
                 'menuItem:id,name,price,is_available',
             ])
-            ->withCount([
-                'engagements as views_count' => fn ($builder) => $builder->where('type', 'view'),
-                'engagements as likes_count' => fn ($builder) => $builder->where('type', 'like'),
-                'engagements as shares_count' => fn ($builder) => $builder->where('type', 'share'),
-                'comments as comments_count',
-            ])
+            ->withCount($videoCountRelations)
             ->latest();
 
         if (!empty($validated['restaurant_id'])) {
@@ -229,6 +237,97 @@ class DashboardController extends Controller
                 'total' => $results->total(),
             ]
         );
+    }
+
+    public function updateVideo(Request $request, Video $video)
+    {
+        $this->assertAdmin($request);
+        $validated = $request->validate([
+            'title' => ['sometimes', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'status' => ['sometimes', 'in:draft,published,archived'],
+            'menu_item_id' => ['nullable', 'integer', 'exists:menu_items,id'],
+            'published_at' => ['nullable', 'date'],
+        ]);
+
+        if (empty($validated)) {
+            return $this->errorResponse(
+                'At least one field is required.',
+                ['title' => ['Provide at least one updatable field.']],
+                code: 'missing_update_fields'
+            );
+        }
+
+        if (array_key_exists('menu_item_id', $validated) && $validated['menu_item_id'] !== null) {
+            $belongsToRestaurant = MenuItem::query()
+                ->whereKey($validated['menu_item_id'])
+                ->whereHas('category', fn ($builder) => $builder->where('restaurant_id', $video->restaurant_id))
+                ->exists();
+
+            if (!$belongsToRestaurant) {
+                return $this->errorResponse(
+                    'Selected menu item does not belong to this restaurant.',
+                    ['menu_item_id' => ['Selected menu item must belong to the same restaurant as this video.']],
+                    code: 'invalid_menu_item',
+                    status: 422
+                );
+            }
+        }
+
+        if (array_key_exists('status', $validated)) {
+            if ($validated['status'] === 'published') {
+                $validated['published_at'] = $validated['published_at'] ?? ($video->published_at ?? now());
+            } else {
+                $validated['published_at'] = null;
+            }
+        }
+
+        if (array_key_exists('title', $validated)) {
+            $validated['title'] = trim((string) $validated['title']);
+        }
+
+        if (array_key_exists('description', $validated) && is_string($validated['description'])) {
+            $validated['description'] = trim($validated['description']);
+        }
+
+        $video->update($validated);
+        $videoCountRelations = [
+            'engagements as views_count' => fn ($builder) => $builder->where('type', 'view'),
+            'engagements as likes_count' => fn ($builder) => $builder->where('type', 'like'),
+            'engagements as shares_count' => fn ($builder) => $builder->where('type', 'share'),
+        ];
+
+        if (Schema::hasTable('video_comments')) {
+            $videoCountRelations['comments as comments_count'] = fn ($builder) => $builder;
+        }
+
+        $video->load([
+            'restaurant:id,name,owner_user_id',
+            'restaurant.owner:id,name,email,phone',
+            'menuItem:id,name,price,is_available',
+        ])->loadCount($videoCountRelations);
+
+        return $this->successResponse(
+            $this->transformAdminVideo($video),
+            message: 'Video updated.'
+        );
+    }
+
+    public function deleteVideo(Request $request, Video $video, CloudflareStreamService $cloudflareStreamService)
+    {
+        $this->assertAdmin($request);
+
+        if (!blank($video->cloudflare_stream_uid)) {
+            try {
+                $cloudflareStreamService->delete($video->cloudflare_stream_uid);
+            } catch (\Throwable) {
+                // Ignore upstream stream deletion errors so moderation delete can still proceed.
+            }
+        }
+
+        $video->delete();
+
+        return $this->successResponse(['deleted' => true], message: 'Video deleted.');
     }
 
     public function updateOrder(Request $request, Order $order, OrderStatusTransitionService $transitionService)
