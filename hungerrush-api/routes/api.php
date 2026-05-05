@@ -118,6 +118,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/loyalty/overview', [LoyaltyController::class, 'overview']);
         Route::post('/loyalty/rewards', [LoyaltyController::class, 'storeReward']);
         Route::patch('/loyalty/rewards/{loyaltyReward}', [LoyaltyController::class, 'updateReward']);
+        Route::delete('/loyalty/rewards/{loyaltyReward}', [LoyaltyController::class, 'destroyReward']);
 
         Route::get('/analytics', [AnalyticsController::class, 'overview']);
     });

@@ -11,6 +11,8 @@ class MenuItem extends Model
 {
     use HasFactory;
 
+    public const COMMISSION_RATE = 0.10;
+
     protected $fillable = ['category_id', 'name', 'description', 'ingredients', 'image_urls', 'price', 'is_available', 'prep_time'];
 
     protected function casts(): array
@@ -40,5 +42,32 @@ class MenuItem extends Model
     public function cartItems(): HasMany
     {
         return $this->hasMany(CartItem::class);
+    }
+
+    public static function applyCommissionToBasePrice(float|int|string $basePrice): float
+    {
+        $normalizedBasePrice = max((float) $basePrice, 0);
+
+        return round($normalizedBasePrice * (1 + self::COMMISSION_RATE), 2);
+    }
+
+    public static function basePriceFromFinalPrice(float|int|string $finalPrice): float
+    {
+        $normalizedFinalPrice = max((float) $finalPrice, 0);
+        $divisor = 1 + self::COMMISSION_RATE;
+
+        if ($divisor <= 0) {
+            return $normalizedFinalPrice;
+        }
+
+        return round($normalizedFinalPrice / $divisor, 2);
+    }
+
+    public static function commissionAmountFromFinalPrice(float|int|string $finalPrice): float
+    {
+        $normalizedFinalPrice = max((float) $finalPrice, 0);
+        $basePrice = self::basePriceFromFinalPrice($normalizedFinalPrice);
+
+        return round(max($normalizedFinalPrice - $basePrice, 0), 2);
     }
 }

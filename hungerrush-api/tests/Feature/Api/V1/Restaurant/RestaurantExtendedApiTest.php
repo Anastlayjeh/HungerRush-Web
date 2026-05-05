@@ -276,6 +276,11 @@ class RestaurantExtendedApiTest extends TestCase
         $owner = User::factory()->create(['role' => 'restaurant_owner']);
         $restaurant = Restaurant::factory()->create(['owner_user_id' => $owner->id]);
         $customer = User::factory()->create(['role' => 'customer']);
+        $category = MenuCategory::factory()->create(['restaurant_id' => $restaurant->id]);
+        $menuItem = MenuItem::factory()->create([
+            'category_id' => $category->id,
+            'price' => 12.50,
+        ]);
         LoyaltyMember::factory()->create([
             'restaurant_id' => $restaurant->id,
             'customer_id' => $customer->id,
@@ -310,6 +315,8 @@ class RestaurantExtendedApiTest extends TestCase
                 'description' => 'Starter discount for first redemptions.',
                 'points_required' => 300,
                 'reward_type' => 'discount',
+                'menu_item_id' => $menuItem->id,
+                'discount_percentage' => 15,
                 'status' => 'active',
             ])
             ->assertCreated();
@@ -319,7 +326,7 @@ class RestaurantExtendedApiTest extends TestCase
                 'name' => 'Draft Reward',
                 'description' => 'Still being prepared.',
                 'points_required' => 500,
-                'reward_type' => 'custom',
+                'reward_type' => 'free_delivery',
                 'status' => 'draft',
             ])
             ->assertCreated();
@@ -348,6 +355,16 @@ class RestaurantExtendedApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data.rewards')
             ->assertJsonPath('data.rewards.0.status', 'archived');
+
+        $this->actingAs($owner, 'sanctum')
+            ->deleteJson("/api/v1/restaurant/loyalty/rewards/{$rewardId}")
+            ->assertOk()
+            ->assertJsonPath('data.deleted', true);
+
+        $this->actingAs($owner, 'sanctum')
+            ->getJson('/api/v1/restaurant/loyalty/overview')
+            ->assertOk()
+            ->assertJsonCount(2, 'data.rewards');
     }
 
     public function test_restaurant_owner_can_fetch_analytics_and_update_settings(): void

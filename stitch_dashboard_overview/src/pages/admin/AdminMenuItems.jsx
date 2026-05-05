@@ -25,6 +25,19 @@ const AVAILABILITY_OPTIONS = [
   { value: "available", label: "Available" },
   { value: "disabled", label: "Disabled" },
 ];
+const MENU_COMMISSION_RATE = 0.1;
+
+function basePriceFromFinalPrice(finalPrice) {
+  const normalizedFinal = Number(finalPrice || 0);
+  if (!normalizedFinal) return 0;
+  return Number((normalizedFinal / (1 + MENU_COMMISSION_RATE)).toFixed(2));
+}
+
+function commissionAmountFromFinalPrice(finalPrice) {
+  const normalizedFinal = Number(finalPrice || 0);
+  const basePrice = basePriceFromFinalPrice(normalizedFinal);
+  return Number(Math.max(normalizedFinal - basePrice, 0).toFixed(2));
+}
 
 function toId(value) {
   if (value === undefined || value === null || value === "") return "";
@@ -36,16 +49,31 @@ function restaurantNameFromItem(item) {
 }
 
 function createEditState(item) {
+  const basePrice =
+    item?.base_price !== undefined && item?.base_price !== null
+      ? Number(item.base_price || 0)
+      : basePriceFromFinalPrice(item?.price);
+
   return {
     name: item?.name || "",
     category: item?.category || "",
-    price: item?.price ?? "",
+    price: item ? String(basePrice) : "",
     availability: item?.availability || "available",
   };
 }
 
 function normalizeApiMenuItem(item, selectedRestaurantId, selectedRestaurantName, categoriesById) {
   const categoryId = toId(item?.category_id);
+  const finalPrice = Number(item?.final_price ?? item?.price ?? 0);
+  const basePrice =
+    item?.base_price !== undefined && item?.base_price !== null
+      ? Number(item.base_price || 0)
+      : basePriceFromFinalPrice(finalPrice);
+  const commissionAmount =
+    item?.commission_amount !== undefined && item?.commission_amount !== null
+      ? Number(item.commission_amount || 0)
+      : commissionAmountFromFinalPrice(finalPrice);
+
   return {
     id: item?.id,
     restaurant_id: Number(selectedRestaurantId),
@@ -59,7 +87,10 @@ function normalizeApiMenuItem(item, selectedRestaurantId, selectedRestaurantName
       item?.category ||
       categoriesById[categoryId] ||
       "Uncategorized",
-    price: Number(item?.price || 0),
+    price: finalPrice,
+    final_price: finalPrice,
+    base_price: basePrice,
+    commission_amount: commissionAmount,
     availability: item?.is_available === false ? "disabled" : "available",
     created_at: item?.created_at || null,
     description: item?.description || "",
@@ -257,11 +288,18 @@ export default function AdminMenuItems({ onNavigate, token, user, onLogout }) {
 
   const saveEdit = () => {
     if (!editingItem) return;
+    const basePrice = Number(editForm.price || 0);
+    const finalPrice = Number((basePrice * (1 + MENU_COMMISSION_RATE)).toFixed(2));
+    const commissionAmount = Number((finalPrice - basePrice).toFixed(2));
+
     updateItem(
       editingItem,
       {
         ...editForm,
-        price: Number(editForm.price || 0),
+        price: finalPrice,
+        final_price: finalPrice,
+        base_price: basePrice,
+        commission_amount: commissionAmount,
       },
       `${editForm.name || "Menu item"} was updated locally.`
     );
@@ -342,7 +380,12 @@ export default function AdminMenuItems({ onNavigate, token, user, onLogout }) {
                   <td className="px-6 py-4 font-semibold">{row.name || "Untitled Item"}</td>
                   <td className="px-6 py-4 text-sm text-slate-600">{restaurantNameFromItem(row)}</td>
                   <td className="px-6 py-4 text-sm text-slate-600">{row.category || "-"}</td>
-                  <td className="px-6 py-4 text-sm font-semibold">{toMoney(row.price)}</td>
+                  <td className="px-6 py-4 text-sm font-semibold">
+                    <div>{toMoney(row.final_price ?? row.price)}</div>
+                    <div className="text-emerald-600 text-xs font-bold">
+                      +{toMoney(row.commission_amount ?? commissionAmountFromFinalPrice(row.price))}
+                    </div>
+                  </td>
                   <td className="px-6 py-4"><StatusBadge value={row.availability} /></td>
                   <td className="px-6 py-4">
                     <div className="flex justify-end gap-2">
@@ -402,7 +445,13 @@ export default function AdminMenuItems({ onNavigate, token, user, onLogout }) {
             <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
               <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs font-bold uppercase text-slate-500">Restaurant</p><p className="mt-1 font-semibold">{restaurantNameFromItem(selectedItem)}</p></div>
               <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs font-bold uppercase text-slate-500">Category</p><p className="mt-1 font-semibold">{selectedItem.category}</p></div>
-              <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs font-bold uppercase text-slate-500">Price</p><p className="mt-1 font-semibold">{toMoney(selectedItem.price)}</p></div>
+              <div className="rounded-xl bg-slate-50 p-4">
+                <p className="text-xs font-bold uppercase text-slate-500">Price</p>
+                <p className="mt-1 font-semibold">{toMoney(selectedItem.final_price ?? selectedItem.price)}</p>
+                <p className="text-xs font-bold text-emerald-600">
+                  +{toMoney(selectedItem.commission_amount ?? commissionAmountFromFinalPrice(selectedItem.price))}
+                </p>
+              </div>
               <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs font-bold uppercase text-slate-500">Availability</p><p className="mt-1 font-semibold">{selectedItem.availability}</p></div>
             </div>
           </div>
@@ -425,7 +474,7 @@ export default function AdminMenuItems({ onNavigate, token, user, onLogout }) {
             {[
               ["name", "Item Name", "text"],
               ["category", "Category", "text"],
-              ["price", "Price", "number"],
+              ["price", "Base Price", "number"],
             ].map(([field, label, type]) => (
               <label key={field} className="text-sm font-semibold text-slate-600">
                 {label}

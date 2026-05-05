@@ -23,10 +23,9 @@ class LoyaltyRewardFactory extends Factory
             'name' => fake()->words(3, true),
             'description' => fake()->sentence(),
             'points_required' => fake()->numberBetween(100, 1000),
-            'reward_type' => fake()->randomElement(['discount', 'free_item', 'free_delivery', 'cashback', 'custom']),
+            'reward_type' => fake()->randomElement(['discount', 'free_item', 'free_delivery']),
             'status' => fake()->randomElement(['active', 'draft', 'archived']),
             'usage_count' => fake()->numberBetween(0, 300),
         ];
     }
 }
-

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\MenuItem;
 
 class LoyaltyReward extends Model
 {
@@ -18,6 +19,8 @@ class LoyaltyReward extends Model
         'points_required',
         'reward_type',
         'status',
+        'menu_item_id',
+        'discount_percentage',
         'usage_count',
     ];
 
@@ -25,6 +28,7 @@ class LoyaltyReward extends Model
     {
         return [
             'points_required' => 'integer',
+            'discount_percentage' => 'decimal:2',
             'usage_count' => 'integer',
         ];
     }
@@ -38,5 +42,9 @@ class LoyaltyReward extends Model
     {
         return $this->hasMany(LoyaltyRedemption::class);
     }
-}
 
+    public function menuItem(): BelongsTo
+    {
+        return $this->belongsTo(MenuItem::class, 'menu_item_id');
+    }
+}
