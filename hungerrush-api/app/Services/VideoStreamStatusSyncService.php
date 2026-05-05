@@ -16,6 +16,10 @@ class VideoStreamStatusSyncService
             return $video;
         }
 
+        if ($this->isRemoteModerationPending($video)) {
+            return $video;
+        }
+
         if (! $video->stream_ready) {
             $stream = $this->cloudflareStreamService->get($video->cloudflare_stream_uid);
 
@@ -81,5 +85,15 @@ class VideoStreamStatusSyncService
         return $video->status === 'draft'
             && (bool) $video->stream_ready
             && filled($video->stream_hls_url);
+    }
+
+    private function isRemoteModerationPending(Video $video): bool
+    {
+        return (
+            strtolower(trim((string) config('services.video_processing.stream_provider', 'cloudflare'))) === 'local'
+            || ! (bool) config('services.video_processing.local_probing_enabled', true)
+        )
+            && $video->status === 'draft'
+            && ! $video->stream_ready;
     }
 }

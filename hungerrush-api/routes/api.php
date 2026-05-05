@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\Customer\ProfileController as CustomerProfileCon
 use App\Http\Controllers\Api\V1\Customer\RestaurantFollowController;
 use App\Http\Controllers\Api\V1\Customer\RestaurantController as CustomerRestaurantController;
 use App\Http\Controllers\Api\V1\Customer\VideoFeedController;
+use App\Http\Controllers\Api\V1\Internal\VideoModerationCallbackController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\Restaurant\AnalyticsController;
@@ -29,6 +30,8 @@ use Illuminate\Support\Facades\Route;
 Route::post('/auth/google', [AuthController::class, 'google']);
 
 Route::prefix('v1')->group(function () {
+    Route::post('/internal/videos/moderation-callback', [VideoModerationCallbackController::class, 'store']);
+
     Route::get('/restaurant/menu/images/{filename}', [MenuImageUploadController::class, 'show'])
         ->where('filename', '[A-Za-z0-9\-\._]+');
     Route::get('/restaurant/videos/assets/{assetType}/{filename}', [VideoAssetUploadController::class, 'show'])

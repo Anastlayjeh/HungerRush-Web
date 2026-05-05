@@ -62,10 +62,19 @@ return [
     ],
 
     'video_processing' => [
+        'stream_provider' => strtolower((string) env('VIDEO_STREAM_PROVIDER', 'cloudflare')),
+        'local_probing_enabled' => filter_var(env('VIDEO_LOCAL_PROBING_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
         'ffmpeg_binary' => env('VIDEO_FFMPEG_BINARY', 'ffmpeg'),
         'ffprobe_binary' => env('VIDEO_FFPROBE_BINARY', 'ffprobe'),
         'max_duration_seconds' => (int) env('VIDEO_MAX_DURATION_SECONDS', 180),
         'frame_interval_seconds' => (int) env('VIDEO_FRAME_INTERVAL_SECONDS', 3),
+    ],
+
+    'video_worker' => [
+        'url' => env('VIDEO_WORKER_URL'),
+        'token' => env('VIDEO_WORKER_TOKEN'),
+        'callback_url' => env('VIDEO_WORKER_CALLBACK_URL', 'https://hungerrush.site/api/v1/internal/videos/moderation-callback'),
+        'timeout_seconds' => (int) env('VIDEO_WORKER_TIMEOUT_SECONDS', 15),
     ],
 
 ];

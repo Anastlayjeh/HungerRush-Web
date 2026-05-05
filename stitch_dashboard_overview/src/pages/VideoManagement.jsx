@@ -24,6 +24,56 @@ function buildPreviewBars(video) {
   );
 }
 
+function moderationDisplay(video) {
+  const status = String(video?.moderation_status || "").toLowerCase();
+
+  if (status === "pending") {
+    return {
+      label: "Under review",
+      message: null,
+      className: "bg-amber-100 text-amber-800 border-amber-200",
+    };
+  }
+
+  if (status === "rejected") {
+    return {
+      label: "Rejected",
+      message: "Not food-related",
+      className: "bg-red-100 text-red-700 border-red-200",
+    };
+  }
+
+  if (status === "failed") {
+    return {
+      label: "Review failed",
+      message: null,
+      className: "bg-slate-200 text-slate-700 border-slate-300",
+    };
+  }
+
+  if (status === "approved" && video?.status === "published") {
+    return {
+      label: "Published",
+      message: null,
+      className: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    };
+  }
+
+  if (video?.status === "published") {
+    return {
+      label: "Published",
+      message: null,
+      className: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    };
+  }
+
+  return {
+    label: video?.status === "archived" ? "Archived" : "Draft",
+    message: null,
+    className: "bg-slate-100 text-slate-700 border-slate-200",
+  };
+}
+
 export default function VideoManagement({ onNavigate, token, user, onLogout }) {
   const [videos, setVideos] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
@@ -245,6 +295,7 @@ export default function VideoManagement({ onNavigate, token, user, onLogout }) {
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredVideos.map((video) => {
               const isActive = video.id === selectedVideoId;
+              const moderation = moderationDisplay(video);
               const thumbnail =
                 video.thumbnail_url ||
                 "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=900&q=80";
@@ -259,9 +310,19 @@ export default function VideoManagement({ onNavigate, token, user, onLogout }) {
                 >
                   <div className="absolute inset-0 bg-cover bg-center" style={bg(thumbnail)}></div>
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+                  <div className="absolute left-3 top-3 right-3">
+                    <span
+                      className={`inline-block max-w-full truncate rounded-full border px-2 py-1 text-[10px] font-bold ${moderation.className}`}
+                    >
+                      {moderation.label}
+                    </span>
+                  </div>
                   <div className="absolute bottom-3 left-3 right-3 text-white">
                     <p className="text-xs font-semibold line-clamp-2">{video.title}</p>
                     <p className="text-[10px] mt-1 uppercase tracking-wider">{video.status}</p>
+                    {moderation.message ? (
+                      <p className="text-[10px] mt-1 font-semibold text-red-100">{moderation.message}</p>
+                    ) : null}
                   </div>
                 </button>
               );
@@ -286,6 +347,29 @@ export default function VideoManagement({ onNavigate, token, user, onLogout }) {
           <h3 className="text-lg font-bold">Video Details</h3>
           {activeVideo ? (
             <>
+              {(() => {
+                const moderation = moderationDisplay(activeVideo);
+
+                return (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-bold text-slate-500 uppercase mb-1">Moderation</p>
+                        {moderation.message ? (
+                          <p className="text-sm font-semibold text-slate-900">{moderation.message}</p>
+                        ) : null}
+                      </div>
+                      <span className={`shrink-0 rounded-full border px-2 py-1 text-xs font-bold ${moderation.className}`}>
+                        {moderation.label}
+                      </span>
+                    </div>
+                    {activeVideo.moderation_reason ? (
+                      <p className="mt-2 text-sm text-slate-700">{activeVideo.moderation_reason}</p>
+                    ) : null}
+                  </div>
+                );
+              })()}
+
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Title</label>
                 <input

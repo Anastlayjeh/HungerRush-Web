@@ -104,6 +104,8 @@ class RestaurantExtendedApiTest extends TestCase
 
     public function test_restaurant_owner_can_manage_videos(): void
     {
+        config()->set('services.video_processing.stream_provider', 'cloudflare');
+
         $owner = User::factory()->create(['role' => 'restaurant_owner']);
         $restaurant = Restaurant::factory()->create(['owner_user_id' => $owner->id]);
         $category = MenuCategory::factory()->create(['restaurant_id' => $restaurant->id]);

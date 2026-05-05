@@ -98,7 +98,7 @@ return new class extends Migration
         $driver = DB::getDriverName();
 
         if ($driver !== 'mysql') {
-            return $this->hasNamedEmailIndex('users_email_unique');
+            return Schema::getConnection()->getSchemaBuilder()->hasIndex('users', ['email'], 'unique');
         }
 
         return DB::table('information_schema.statistics')
@@ -114,7 +114,7 @@ return new class extends Migration
         $driver = DB::getDriverName();
 
         if ($driver !== 'mysql') {
-            return false;
+            return Schema::getConnection()->getSchemaBuilder()->hasIndex('users', $indexName);
         }
 
         return DB::table('information_schema.statistics')
