@@ -27,6 +27,10 @@ class Video extends Model
         'stream_preview_url',
         'status',
         'published_at',
+        'moderation_status',
+        'moderation_reason',
+        'moderation_confidence',
+        'moderation_checked_at',
     ];
 
     protected function casts(): array
@@ -34,6 +38,8 @@ class Video extends Model
         return [
             'published_at' => 'datetime',
             'stream_ready' => 'boolean',
+            'moderation_confidence' => 'float',
+            'moderation_checked_at' => 'datetime',
         ];
     }
 

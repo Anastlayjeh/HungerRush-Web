@@ -67,6 +67,7 @@ class VideoController extends Controller
         $this->assertMenuItemBelongsToRestaurant($restaurant, $validated['menu_item_id'] ?? null);
 
         $streamData = $restaurantVideoIngestionService->ingest($request->file('video'), $restaurant);
+        $moderationVideoUrl = $restaurantVideoIngestionService->moderationVideoUrl();
         $requiresRemoteModeration = $restaurantVideoIngestionService->requiresRemoteModeration();
         $status = (! $requiresRemoteModeration) && ($streamData['stream_ready'] ?? false)
             ? 'published'
@@ -81,10 +82,14 @@ class VideoController extends Controller
             ...$streamData,
             'status' => $status,
             'published_at' => $status === 'published' ? ($validated['published_at'] ?? now()) : null,
+            'moderation_status' => $requiresRemoteModeration ? 'pending' : null,
+            'moderation_reason' => $requiresRemoteModeration ? 'Video is being reviewed' : null,
+            'moderation_confidence' => null,
+            'moderation_checked_at' => null,
         ]);
 
         if ($requiresRemoteModeration) {
-            $restaurantVideoIngestionService->requestRemoteModeration($video);
+            $restaurantVideoIngestionService->requestRemoteModeration($video, $moderationVideoUrl);
         }
 
         $video->load('menuItem:id,name,price,is_available')
@@ -164,6 +169,10 @@ class VideoController extends Controller
             'stream_preview_url' => $video->stream_preview_url,
             'status' => $video->status,
             'published_at' => optional($video->published_at)->toISOString(),
+            'moderation_status' => $video->moderation_status,
+            'moderation_reason' => $video->moderation_reason,
+            'moderation_confidence' => $video->moderation_confidence !== null ? (float) $video->moderation_confidence : null,
+            'moderation_checked_at' => optional($video->moderation_checked_at)->toISOString(),
             'views_count' => (int) ($video->views_count ?? 0),
             'likes_count' => (int) ($video->likes_count ?? 0),
             'shares_count' => (int) ($video->shares_count ?? 0),
