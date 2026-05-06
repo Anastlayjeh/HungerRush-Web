@@ -14,12 +14,15 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Throwable;
 
 class AuthController extends Controller
 {
+    private const PASSWORD_RESET_MESSAGE = 'If this email exists, a reset password link has been sent.';
+
     public function register(RegisterRequest $request)
     {
         $validated = $request->validated();
@@ -260,12 +263,18 @@ class AuthController extends Controller
 
     public function forgotPassword(Request $request)
     {
-        return $this->successResponse(['queued' => true], message: 'Password reset flow placeholder.');
-    }
+        $validated = $request->validate([
+            'email' => ['required', 'email'],
+        ]);
 
-    public function resetPassword(Request $request)
-    {
-        return $this->successResponse(['reset' => true], message: 'Password reset endpoint placeholder.');
+        Password::sendResetLink([
+            'email' => strtolower(trim((string) $validated['email'])),
+        ]);
+
+        return $this->successResponse(
+            ['queued' => true],
+            message: self::PASSWORD_RESET_MESSAGE
+        );
     }
 
     protected function createAccessToken(User $user, string $deviceName): string
