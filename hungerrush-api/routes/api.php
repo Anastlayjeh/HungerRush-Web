@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\Admin\DashboardController as AdminDashboardContr
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ConversationController;
 use App\Http\Controllers\Api\V1\Customer\CartController;
+use App\Http\Controllers\Api\V1\Customer\LoyaltyController as CustomerLoyaltyController;
 use App\Http\Controllers\Api\V1\Customer\OrderController as CustomerOrderController;
 use App\Http\Controllers\Api\V1\Customer\ProfileController as CustomerProfileController;
 use App\Http\Controllers\Api\V1\Customer\RestaurantController as CustomerRestaurantController;
@@ -15,6 +16,7 @@ use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\Restaurant\AnalyticsController;
 use App\Http\Controllers\Api\V1\Restaurant\LoyaltyController;
+use App\Http\Controllers\Api\V1\Restaurant\LoyaltyOfferController;
 use App\Http\Controllers\Api\V1\Restaurant\MenuCategoryController;
 use App\Http\Controllers\Api\V1\Restaurant\MenuImageUploadController;
 use App\Http\Controllers\Api\V1\Restaurant\MenuItemController;
@@ -29,6 +31,8 @@ use App\Http\Controllers\Api\V1\SupportRequestController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/google', [AuthController::class, 'google']);
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])
+    ->middleware('throttle:5,1');
 
 Route::prefix('v1')->group(function () {
     Route::post('/internal/videos/moderation-callback', [VideoModerationCallbackController::class, 'store']);
@@ -46,8 +50,8 @@ Route::prefix('v1')->group(function () {
     Route::prefix('auth')->group(function () {
         Route::post('/register', [AuthController::class, 'register']);
         Route::post('/login', [AuthController::class, 'login']);
-        Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
-        Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+        Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])
+            ->middleware('throttle:5,1');
 
         Route::middleware('auth:sanctum')->group(function () {
             Route::post('/logout', [AuthController::class, 'logout']);
@@ -126,6 +130,9 @@ Route::prefix('v1')->group(function () {
         Route::post('/loyalty/rewards', [LoyaltyController::class, 'storeReward']);
         Route::patch('/loyalty/rewards/{loyaltyReward}', [LoyaltyController::class, 'updateReward']);
         Route::delete('/loyalty/rewards/{loyaltyReward}', [LoyaltyController::class, 'destroyReward']);
+        Route::get('/loyalty/offers', [LoyaltyOfferController::class, 'index']);
+        Route::post('/loyalty/offers', [LoyaltyOfferController::class, 'store']);
+        Route::patch('/loyalty/offers/{loyaltyOffer}', [LoyaltyOfferController::class, 'update']);
 
         Route::get('/analytics', [AnalyticsController::class, 'overview']);
     });
@@ -149,6 +156,11 @@ Route::prefix('v1')->group(function () {
         Route::get('/restaurants', [CustomerRestaurantController::class, 'index']);
         Route::get('/restaurants/{restaurant}', [CustomerRestaurantController::class, 'show']);
         Route::get('/restaurants/{restaurant}/menu', [CustomerRestaurantController::class, 'menu']);
+        Route::get('/restaurants/{restaurant}/loyalty-offers', [CustomerLoyaltyController::class, 'offers']);
+
+        Route::get('/loyalty/points', [CustomerLoyaltyController::class, 'index']);
+        Route::get('/loyalty/points/{restaurant}', [CustomerLoyaltyController::class, 'show']);
+        Route::post('/loyalty/offers/{loyaltyOffer}/redeem', [CustomerLoyaltyController::class, 'redeem']);
 
         Route::get('/cart', [CartController::class, 'show']);
         Route::post('/cart/items', [CartController::class, 'addItem']);
