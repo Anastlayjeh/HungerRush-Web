@@ -66,4 +66,9 @@ class Order extends Model
     {
         return $this->hasMany(Review::class);
     }
+
+    public function loyaltyTransactions(): HasMany
+    {
+        return $this->hasMany(LoyaltyTransaction::class);
+    }
 }

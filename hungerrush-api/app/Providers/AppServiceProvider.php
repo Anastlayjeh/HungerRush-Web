@@ -6,6 +6,7 @@ use App\Models\MenuCategory;
 use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\Restaurant;
+use App\Observers\OrderObserver;
 use App\Policies\MenuCategoryPolicy;
 use App\Policies\MenuItemPolicy;
 use App\Policies\OrderPolicy;
@@ -32,5 +33,6 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(MenuCategory::class, MenuCategoryPolicy::class);
         Gate::policy(MenuItem::class, MenuItemPolicy::class);
         Gate::policy(Order::class, OrderPolicy::class);
+        Order::observe(OrderObserver::class);
     }
 }

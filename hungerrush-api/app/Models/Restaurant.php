@@ -82,6 +82,21 @@ class Restaurant extends Model
         return $this->hasMany(LoyaltyMember::class);
     }
 
+    public function loyaltyPoints(): HasMany
+    {
+        return $this->hasMany(LoyaltyPoint::class);
+    }
+
+    public function loyaltyOffers(): HasMany
+    {
+        return $this->hasMany(LoyaltyOffer::class);
+    }
+
+    public function loyaltyTransactions(): HasMany
+    {
+        return $this->hasMany(LoyaltyTransaction::class);
+    }
+
     public function conversations(): HasMany
     {
         return $this->hasMany(Conversation::class);
