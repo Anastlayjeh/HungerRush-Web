@@ -13,6 +13,9 @@ class RestaurantFollowController extends Controller
     {
         $restaurants = Restaurant::query()
             ->whereHas('follows', fn ($builder) => $builder->where('user_id', auth()->id()))
+            ->with(['owner:id,name,email,phone', 'branches'])
+            ->withCount(['orders', 'reviews', 'menuItems', 'follows'])
+            ->withAvg('reviews', 'rating')
             ->latest()
             ->paginate(20);
 

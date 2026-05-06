@@ -71,6 +71,7 @@ class SettingsController extends Controller
     private function buildPayload(Restaurant $restaurant): array
     {
         $restaurant->loadMissing(['owner:id,name,email,phone', 'branches:id,restaurant_id,name,address,phone,latitude,longitude']);
+        $settings = array_merge($this->defaultSettings(), $restaurant->settings ?? []);
 
         return [
             'restaurant' => [
@@ -78,6 +79,7 @@ class SettingsController extends Controller
                 'name' => $restaurant->name,
                 'description' => $restaurant->description,
                 'status' => $restaurant->status,
+                'cuisine_type' => $settings['cuisine_type'] ?? null,
             ],
             'owner' => [
                 'id' => $restaurant->owner?->id,
@@ -85,7 +87,7 @@ class SettingsController extends Controller
                 'email' => $restaurant->owner?->email,
                 'phone' => $restaurant->owner?->phone,
             ],
-            'settings' => array_merge($this->defaultSettings(), $restaurant->settings ?? []),
+            'settings' => $settings,
             'locations' => $restaurant->branches
                 ->map(fn (RestaurantBranch $branch) => [
                     'id' => $branch->id,
@@ -106,6 +108,7 @@ class SettingsController extends Controller
             'default_prep_time' => 20,
             'auto_accept_orders' => false,
             'notifications_enabled' => true,
+            'cuisine_type' => null,
             'currency' => 'USD',
             'timezone' => 'Asia/Beirut',
             'contact_numbers' => [],
@@ -129,6 +132,14 @@ class SettingsController extends Controller
 
         if (array_key_exists('currency', $settings) && is_string($settings['currency'])) {
             $normalized['currency'] = strtoupper(trim($settings['currency']));
+        }
+
+        if (array_key_exists('cuisine_type', $settings)) {
+            $cuisineType = is_string($settings['cuisine_type'])
+                ? trim($settings['cuisine_type'])
+                : $settings['cuisine_type'];
+
+            $normalized['cuisine_type'] = $cuisineType === '' ? null : $cuisineType;
         }
 
         if (array_key_exists('timezone', $settings) && is_string($settings['timezone'])) {

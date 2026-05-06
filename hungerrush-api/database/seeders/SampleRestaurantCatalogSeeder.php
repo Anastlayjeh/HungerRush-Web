@@ -94,6 +94,7 @@ class SampleRestaurantCatalogSeeder extends Seeder
                     20,
                     false,
                     ['+961 1 555 010', '+961 70 555 010'],
+                    'Burgers',
                     'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=900&q=80'
                 ),
                 'branches' => [
@@ -178,6 +179,7 @@ class SampleRestaurantCatalogSeeder extends Seeder
                     25,
                     true,
                     ['+961 1 555 020'],
+                    'Lebanese Grill',
                     'https://images.unsplash.com/photo-1590846406792-0adc7f938f1d?auto=format&fit=crop&w=900&q=80'
                 ),
                 'branches' => [
@@ -262,6 +264,7 @@ class SampleRestaurantCatalogSeeder extends Seeder
                     18,
                     false,
                     ['+961 1 555 030'],
+                    'Japanese',
                     'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=900&q=80'
                 ),
                 'branches' => [
@@ -331,12 +334,13 @@ class SampleRestaurantCatalogSeeder extends Seeder
     /**
      * @return array<string, mixed>
      */
-    private function settings(int $prepTime, bool $autoAcceptOrders, array $contactNumbers, string $profilePhotoUrl): array
+    private function settings(int $prepTime, bool $autoAcceptOrders, array $contactNumbers, string $cuisineType, string $profilePhotoUrl): array
     {
         return [
             'default_prep_time' => $prepTime,
             'auto_accept_orders' => $autoAcceptOrders,
             'notifications_enabled' => true,
+            'cuisine_type' => $cuisineType,
             'currency' => 'USD',
             'timezone' => 'Asia/Beirut',
             'contact_numbers' => $contactNumbers,

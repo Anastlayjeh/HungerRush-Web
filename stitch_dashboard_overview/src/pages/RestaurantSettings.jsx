@@ -146,6 +146,7 @@ function initialForm() {
     defaultPrepTime: 20,
     autoAcceptOrders: false,
     notificationsEnabled: true,
+    cuisineType: "",
     currency: "USD",
     timezone: "Asia/Beirut",
     contactNumbers: [createContactNumberRow("")],
@@ -216,6 +217,7 @@ export default function RestaurantSettings({
         defaultPrepTime: Number(payload?.settings?.default_prep_time ?? 20),
         autoAcceptOrders: Boolean(payload?.settings?.auto_accept_orders),
         notificationsEnabled: Boolean(payload?.settings?.notifications_enabled),
+        cuisineType: payload?.settings?.cuisine_type || "",
         currency: payload?.settings?.currency || "USD",
         timezone: payload?.settings?.timezone || "Asia/Beirut",
         contactNumbers:
@@ -442,6 +444,7 @@ export default function RestaurantSettings({
           default_prep_time: Number(form.defaultPrepTime),
           auto_accept_orders: Boolean(form.autoAcceptOrders),
           notifications_enabled: Boolean(form.notificationsEnabled),
+          cuisine_type: form.cuisineType.trim() || null,
           currency: String(form.currency || "USD").toUpperCase(),
           timezone: form.timezone.trim() || "Asia/Beirut",
           profile_photo_url: photoUrlToSave,
@@ -574,6 +577,17 @@ export default function RestaurantSettings({
               value={form.name}
               onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
               required
+              disabled={loading}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Cuisine Type</label>
+            <input
+              className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg text-sm"
+              type="text"
+              value={form.cuisineType}
+              onChange={(event) => setForm((prev) => ({ ...prev, cuisineType: event.target.value }))}
+              placeholder="Lebanese, Burgers, Sushi"
               disabled={loading}
             />
           </div>

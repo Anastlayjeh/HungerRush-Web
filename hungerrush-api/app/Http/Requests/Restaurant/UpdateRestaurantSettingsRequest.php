@@ -36,6 +36,7 @@ class UpdateRestaurantSettingsRequest extends FormRequest
             'settings.default_prep_time' => ['nullable', 'integer', 'min:1', 'max:180'],
             'settings.auto_accept_orders' => ['nullable', 'boolean'],
             'settings.notifications_enabled' => ['nullable', 'boolean'],
+            'settings.cuisine_type' => ['nullable', 'string', 'max:120'],
             'settings.currency' => ['nullable', 'string', 'size:3'],
             'settings.timezone' => ['nullable', 'string', 'max:64'],
             'settings.contact_numbers' => ['nullable', 'array', 'max:10'],

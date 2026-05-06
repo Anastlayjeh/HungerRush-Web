@@ -443,13 +443,16 @@ class RestaurantExtendedApiTest extends TestCase
                 'settings' => [
                     'auto_accept_orders' => true,
                     'default_prep_time' => 18,
+                    'cuisine_type' => 'Lebanese Grill',
                 ],
             ])
             ->assertOk()
             ->assertJsonPath('data.restaurant.name', 'Updated Demo Kitchen')
             ->assertJsonPath('data.owner.name', 'Updated Owner')
+            ->assertJsonPath('data.restaurant.cuisine_type', 'Lebanese Grill')
             ->assertJsonPath('data.settings.auto_accept_orders', true)
-            ->assertJsonPath('data.settings.default_prep_time', 18);
+            ->assertJsonPath('data.settings.default_prep_time', 18)
+            ->assertJsonPath('data.settings.cuisine_type', 'Lebanese Grill');
     }
 
     public function test_restaurant_owner_can_manage_locations_numbers_and_profile_photo_in_settings(): void

@@ -60,6 +60,7 @@ class DemoDataSeeder extends Seeder
                     'default_prep_time' => 20,
                     'auto_accept_orders' => false,
                     'notifications_enabled' => true,
+                    'cuisine_type' => 'Burgers',
                     'currency' => 'USD',
                     'timezone' => 'Asia/Beirut',
                 ],

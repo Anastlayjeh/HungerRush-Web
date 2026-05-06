@@ -120,6 +120,23 @@ class OrderNotificationService
                                     'body' => $body,
                                 ],
                                 'data' => $payloadData,
+                                'android' => [
+                                    'priority' => 'HIGH',
+                                    'notification' => [
+                                        'channel_id' => 'hungerrush_notifications',
+                                        'sound' => 'default',
+                                    ],
+                                ],
+                                'apns' => [
+                                    'headers' => [
+                                        'apns-priority' => '10',
+                                    ],
+                                    'payload' => [
+                                        'aps' => [
+                                            'sound' => 'default',
+                                        ],
+                                    ],
+                                ],
                             ],
                         ]);
 

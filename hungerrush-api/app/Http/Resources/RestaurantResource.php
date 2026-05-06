@@ -21,6 +21,7 @@ class RestaurantResource extends JsonResource
             'description' => $this->description,
             'status' => $this->status,
             'owner_user_id' => $this->owner_user_id,
+            'cuisine_type' => is_array($settings) ? ($settings['cuisine_type'] ?? null) : null,
             'owner' => $this->whenLoaded('owner', fn () => $this->owner ? [
                 'id' => $this->owner->id,
                 'name' => $this->owner->name,
@@ -50,6 +51,7 @@ class RestaurantResource extends JsonResource
             'menu_items_count' => (int) ($this->menu_items_count ?? 0),
             'orders_count' => (int) ($this->orders_count ?? 0),
             'reviews_count' => (int) ($this->reviews_count ?? 0),
+            'followers_count' => (int) ($this->follows_count ?? 0),
             'average_rating' => $this->reviews_avg_rating !== null
                 ? round((float) $this->reviews_avg_rating, 1)
                 : null,

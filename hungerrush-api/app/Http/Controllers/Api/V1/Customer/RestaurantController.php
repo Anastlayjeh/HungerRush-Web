@@ -15,8 +15,11 @@ class RestaurantController extends Controller
         $restaurants = Restaurant::query()
             ->where('status', 'active')
             ->with(['owner:id,name,email,phone', 'branches'])
-            ->withCount(['orders', 'reviews', 'menuItems'])
+            ->withCount(['orders', 'reviews', 'menuItems', 'follows'])
             ->withAvg('reviews', 'rating')
+            ->orderByDesc('follows_count')
+            ->orderByDesc('reviews_avg_rating')
+            ->orderByDesc('reviews_count')
             ->latest()
             ->paginate(20);
 
@@ -30,7 +33,7 @@ class RestaurantController extends Controller
     public function show(Restaurant $restaurant)
     {
         $restaurant->load(['owner:id,name,email,phone', 'branches'])
-            ->loadCount(['orders', 'reviews', 'menuItems'])
+            ->loadCount(['orders', 'reviews', 'menuItems', 'follows'])
             ->loadAvg('reviews', 'rating');
 
         return $this->successResponse(new RestaurantResource($restaurant));
@@ -39,7 +42,7 @@ class RestaurantController extends Controller
     public function menu(Restaurant $restaurant)
     {
         $restaurant->load(['owner:id,name,email,phone', 'branches'])
-            ->loadCount(['orders', 'reviews', 'menuItems'])
+            ->loadCount(['orders', 'reviews', 'menuItems', 'follows'])
             ->loadAvg('reviews', 'rating');
         $categories = $restaurant->categories()
             ->with([
