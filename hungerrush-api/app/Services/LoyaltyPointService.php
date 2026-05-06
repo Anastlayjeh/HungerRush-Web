@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\LoyaltyPoint;
 use App\Models\LoyaltyTransaction;
 use App\Models\Order;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -79,6 +80,32 @@ class LoyaltyPointService
 
             return null;
         }
+    }
+
+    public function syncEligibleOrdersForCustomer(int $customerId): void
+    {
+        if (!$this->loyaltyTablesReady()) {
+            return;
+        }
+
+        $eligibleStatuses = ['delivered', 'completed'];
+
+        Order::query()
+            ->where('customer_id', $customerId)
+            ->where(function (Builder $query) use ($eligibleStatuses) {
+                $query
+                    ->whereIn('status', $eligibleStatuses)
+                    ->orWhere('payment_status', 'paid');
+            })
+            ->whereDoesntHave('loyaltyTransactions', function (Builder $query) {
+                $query->where('type', 'earned');
+            })
+            ->orderBy('id')
+            ->chunkById(100, function ($orders) {
+                foreach ($orders as $order) {
+                    $this->awardForOrderIfEligible($order);
+                }
+            });
     }
 
     public function calculateEarnedPoints(Order $order): int

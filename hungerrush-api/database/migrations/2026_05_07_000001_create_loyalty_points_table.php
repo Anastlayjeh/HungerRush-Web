@@ -8,10 +8,14 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('loyalty_points')) {
+            return;
+        }
+
         Schema::create('loyalty_points', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
-            $table->foreignId('restaurant_id')->constrained()->cascadeOnDelete();
+            $table->unsignedBigInteger('user_id');
+            $table->unsignedBigInteger('restaurant_id');
             $table->unsignedInteger('points_balance')->default(0);
             $table->unsignedInteger('total_earned')->default(0);
             $table->unsignedInteger('total_redeemed')->default(0);
@@ -19,6 +23,7 @@ return new class extends Migration
 
             $table->unique(['user_id', 'restaurant_id']);
             $table->index(['restaurant_id', 'points_balance']);
+            $table->index('user_id');
         });
     }
 

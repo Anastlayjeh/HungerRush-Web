@@ -8,9 +8,13 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('loyalty_offers')) {
+            return;
+        }
+
         Schema::create('loyalty_offers', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('restaurant_id')->constrained()->cascadeOnDelete();
+            $table->unsignedBigInteger('restaurant_id');
             $table->string('title', 160);
             $table->text('description')->nullable();
             $table->unsignedInteger('required_points')->default(0);

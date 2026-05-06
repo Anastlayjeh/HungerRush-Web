@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('video_comments')) {
+            return;
+        }
+
         Schema::create('video_comments', function (Blueprint $table) {
             $table->id();
             $table->foreignId('video_id')->constrained()->cascadeOnDelete();

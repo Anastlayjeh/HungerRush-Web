@@ -7,6 +7,7 @@ use App\Models\LoyaltyOffer;
 use App\Models\LoyaltyPoint;
 use App\Models\LoyaltyTransaction;
 use App\Models\Restaurant;
+use App\Services\LoyaltyPointService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -14,10 +15,14 @@ use Illuminate\Validation\ValidationException;
 
 class LoyaltyController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, LoyaltyPointService $loyaltyPointService)
     {
         $userId = (int) $request->user()->id;
         $hasLoyaltyPointsTable = Schema::hasTable('loyalty_points');
+
+        if ($hasLoyaltyPointsTable && Schema::hasTable('loyalty_transactions')) {
+            $loyaltyPointService->syncEligibleOrdersForCustomer($userId);
+        }
 
         $pointsByRestaurant = $hasLoyaltyPointsTable
             ? LoyaltyPoint::query()
@@ -71,8 +76,12 @@ class LoyaltyController extends Controller
         ]);
     }
 
-    public function show(Request $request, Restaurant $restaurant)
+    public function show(Request $request, Restaurant $restaurant, LoyaltyPointService $loyaltyPointService)
     {
+        if (Schema::hasTable('loyalty_points') && Schema::hasTable('loyalty_transactions')) {
+            $loyaltyPointService->syncEligibleOrdersForCustomer((int) $request->user()->id);
+        }
+
         $points = null;
         if (Schema::hasTable('loyalty_points')) {
             $points = LoyaltyPoint::query()
