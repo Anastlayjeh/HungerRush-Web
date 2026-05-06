@@ -46,6 +46,11 @@ return [
         'timeout_seconds' => (int) env('CLOUDFLARE_STREAM_TIMEOUT_SECONDS', 180),
     ],
 
+    'firebase' => [
+        'credentials' => env('FIREBASE_CREDENTIALS'),
+        'timeout_seconds' => (int) env('FIREBASE_TIMEOUT_SECONDS', 10),
+    ],
+
     'hugging_face' => [
         'base_url' => env('HUGGING_FACE_BASE_URL', 'https://router.huggingface.co/hf-inference/models'),
         'api_token' => env('HUGGING_FACE_API_TOKEN', env('HF_TOKEN')),

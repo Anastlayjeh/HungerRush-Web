@@ -126,18 +126,28 @@ class RestaurantExtendedApiTest extends TestCase
             {
             }
 
-            public function ingest(UploadedFile $videoFile, Restaurant $restaurant): array
+            public function ingestWithReport(UploadedFile $videoFile, Restaurant $restaurant): array
             {
                 return [
-                    'media_url' => 'https://customer-example.cloudflarestream.com/9f3d8f11db3644d49be4f48fd3ab67f1/manifest/video.m3u8',
-                    'thumbnail_url' => 'https://customer-example.cloudflarestream.com/9f3d8f11db3644d49be4f48fd3ab67f1/thumbnails/thumbnail.jpg',
-                    'cloudflare_stream_uid' => '9f3d8f11db3644d49be4f48fd3ab67f1',
-                    'duration_seconds' => 42,
-                    'stream_status' => 'ready',
-                    'stream_ready' => true,
-                    'stream_hls_url' => 'https://customer-example.cloudflarestream.com/9f3d8f11db3644d49be4f48fd3ab67f1/manifest/video.m3u8',
-                    'stream_dash_url' => 'https://customer-example.cloudflarestream.com/9f3d8f11db3644d49be4f48fd3ab67f1/manifest/video.mpd',
-                    'stream_preview_url' => 'https://customer-example.cloudflarestream.com/9f3d8f11db3644d49be4f48fd3ab67f1/watch',
+                    'video_attributes' => [
+                        'media_url' => 'https://customer-example.cloudflarestream.com/9f3d8f11db3644d49be4f48fd3ab67f1/manifest/video.m3u8',
+                        'thumbnail_url' => 'https://customer-example.cloudflarestream.com/9f3d8f11db3644d49be4f48fd3ab67f1/thumbnails/thumbnail.jpg',
+                        'cloudflare_stream_uid' => '9f3d8f11db3644d49be4f48fd3ab67f1',
+                        'duration_seconds' => 42,
+                        'stream_status' => 'ready',
+                        'stream_ready' => true,
+                        'stream_hls_url' => 'https://customer-example.cloudflarestream.com/9f3d8f11db3644d49be4f48fd3ab67f1/manifest/video.m3u8',
+                        'stream_dash_url' => 'https://customer-example.cloudflarestream.com/9f3d8f11db3644d49be4f48fd3ab67f1/manifest/video.mpd',
+                        'stream_preview_url' => 'https://customer-example.cloudflarestream.com/9f3d8f11db3644d49be4f48fd3ab67f1/watch',
+                    ],
+                    'moderation_video_url' => null,
+                    'moderation' => [
+                        'duration_seconds' => 42,
+                        'frame_count' => 1,
+                        'food_frame_count' => 1,
+                        'food_frame_ratio' => 1.0,
+                    ],
+                    'stream' => null,
                 ];
             }
         });

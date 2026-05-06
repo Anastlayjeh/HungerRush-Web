@@ -66,8 +66,9 @@ class VideoController extends Controller
         $validated = $request->validated();
         $this->assertMenuItemBelongsToRestaurant($restaurant, $validated['menu_item_id'] ?? null);
 
-        $streamData = $restaurantVideoIngestionService->ingest($request->file('video'), $restaurant);
-        $moderationVideoUrl = $restaurantVideoIngestionService->moderationVideoUrl();
+        $ingestionReport = $restaurantVideoIngestionService->ingestWithReport($request->file('video'), $restaurant);
+        $streamData = $ingestionReport['video_attributes'];
+        $moderationVideoUrl = $ingestionReport['moderation_video_url'] ?? null;
         $requiresRemoteModeration = $restaurantVideoIngestionService->requiresRemoteModeration();
         $status = (! $requiresRemoteModeration) && ($streamData['stream_ready'] ?? false)
             ? 'published'
@@ -89,7 +90,7 @@ class VideoController extends Controller
         ]);
 
         if ($requiresRemoteModeration) {
-            $restaurantVideoIngestionService->requestRemoteModeration($video, $moderationVideoUrl);
+            $this->requestRemoteModerationAfterResponse($restaurantVideoIngestionService, $video, $moderationVideoUrl);
         }
 
         $video->load('menuItem:id,name,price,is_available')
@@ -101,7 +102,9 @@ class VideoController extends Controller
 
         return $this->successResponse(
             $this->transformVideo($video),
-            message: 'Video created successfully.',
+            message: $requiresRemoteModeration
+                ? 'Video uploaded and is under review.'
+                : 'Video created successfully.',
             status: 201
         );
     }
@@ -225,6 +228,16 @@ class VideoController extends Controller
         } catch (\Throwable) {
             return $video;
         }
+    }
+
+    private function requestRemoteModerationAfterResponse(
+        RestaurantVideoIngestionService $restaurantVideoIngestionService,
+        Video $video,
+        ?string $moderationVideoUrl
+    ): void {
+        app()->terminating(function () use ($restaurantVideoIngestionService, $video, $moderationVideoUrl) {
+            $restaurantVideoIngestionService->requestRemoteModeration($video->fresh() ?? $video, $moderationVideoUrl);
+        });
     }
 
     private function streamProvider(): string

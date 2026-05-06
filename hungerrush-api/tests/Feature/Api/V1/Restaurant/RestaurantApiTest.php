@@ -42,6 +42,13 @@ class RestaurantApiTest extends TestCase
             ]);
 
         $response->assertOk()->assertJsonPath('data.status', 'accepted');
+
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $order->customer_id,
+            'type' => 'order_status',
+            'title' => 'Order confirmed',
+            'body' => 'Your order has been confirmed.',
+        ]);
     }
 
     public function test_invalid_order_transition_returns_error(): void
@@ -90,5 +97,29 @@ class RestaurantApiTest extends TestCase
             ])
             ->assertUnprocessable()
             ->assertJsonPath('code', 'invalid_order_transition');
+    }
+
+    public function test_restaurant_owner_delivery_status_notifies_customer(): void
+    {
+        $owner = User::factory()->create(['role' => 'restaurant_owner']);
+        $restaurant = Restaurant::factory()->create(['owner_user_id' => $owner->id]);
+        $order = Order::factory()->create([
+            'restaurant_id' => $restaurant->id,
+            'status' => 'on_the_way',
+        ]);
+
+        $this->actingAs($owner, 'sanctum')
+            ->patchJson("/api/v1/restaurant/orders/{$order->id}/status", [
+                'status' => 'delivered',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'delivered');
+
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $order->customer_id,
+            'type' => 'order_status',
+            'title' => 'Order delivered',
+            'body' => 'Your order has been delivered.',
+        ]);
     }
 }

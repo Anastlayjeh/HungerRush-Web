@@ -51,6 +51,13 @@ class CustomerApiTest extends TestCase
         $orderResponse->assertCreated()
             ->assertJsonPath('data.restaurant_id', $restaurant->id);
 
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $restaurant->owner_user_id,
+            'type' => 'restaurant_order',
+            'title' => 'New order received',
+            'body' => 'You received a new order.',
+        ]);
+
         $this->actingAs($customer, 'sanctum')
             ->getJson('/api/v1/customer/orders/history')
             ->assertOk()

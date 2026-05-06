@@ -5,9 +5,9 @@ namespace App\Http\Controllers\Api\V1\Restaurant;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
-use App\Http\Resources\OrderResource;
 use App\Http\Requests\Restaurant\StoreQuickOrderRequest;
 use App\Http\Requests\Restaurant\UpdateOrderStatusRequest;
+use App\Http\Resources\OrderResource;
 use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -15,7 +15,7 @@ use App\Models\OrderStatusHistory;
 use App\Models\Restaurant;
 use App\Models\RestaurantBranch;
 use App\Models\User;
-use App\Models\UserNotification;
+use App\Services\OrderNotificationService;
 use App\Services\OrderStatusTransitionService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -58,8 +58,12 @@ class OrderController extends Controller
         return $this->successResponse(new OrderResource($order));
     }
 
-    public function updateStatus(UpdateOrderStatusRequest $request, Order $order, OrderStatusTransitionService $transitionService)
-    {
+    public function updateStatus(
+        UpdateOrderStatusRequest $request,
+        Order $order,
+        OrderStatusTransitionService $transitionService,
+        OrderNotificationService $orderNotificationService
+    ) {
         $this->authorize('update', $order);
         $targetStatus = OrderStatus::from($request->validated()['status']);
 
@@ -79,13 +83,7 @@ class OrderController extends Controller
             'changed_at' => now(),
         ]);
 
-        UserNotification::create([
-            'user_id' => $order->customer_id,
-            'type' => 'order_status',
-            'title' => 'Order status updated',
-            'body' => "Order #{$order->id} is now {$targetStatus->value}.",
-            'data' => ['order_id' => $order->id, 'status' => $targetStatus->value],
-        ]);
+        $orderNotificationService->notifyCustomerStatusChange($order, $targetStatus);
 
         return $this->successResponse(new OrderResource($order->refresh()->load(['customer:id,name,email,phone', 'restaurant.branches', 'branch', 'items.menuItem.category', 'statusHistory'])), message: 'Order status updated.');
     }

@@ -104,14 +104,27 @@ export default function CreateVideoPost({ onNavigate, token, user, onLogout }) {
         body.append("menu_item_id", form.menuItemId);
       }
 
-      await api.createVideo(token, body);
+      const createdVideo = await api.createVideo(token, body);
 
-      setSuccessMessage(status === "published" ? "Video published successfully." : "Draft saved.");
+      setSuccessMessage(
+        createdVideo?.moderation_status === "pending"
+          ? "Video uploaded and is under review."
+          : status === "published"
+            ? "Video published successfully."
+            : "Draft saved."
+      );
       setForm(initialForm());
       setVideoFile(null);
       window.setTimeout(() => onNavigate?.("videos"), 600);
     } catch (requestError) {
-      setError(requestError?.message || "Failed to create video.");
+      const message = String(requestError?.message || "");
+
+      if (message.toLowerCase().includes("failed to fetch")) {
+        setSuccessMessage("Upload may still be processing. Please check Video Management.");
+        window.setTimeout(() => onNavigate?.("videos"), 1400);
+      } else {
+        setError(message || "Failed to create video.");
+      }
     } finally {
       setSaving(false);
     }

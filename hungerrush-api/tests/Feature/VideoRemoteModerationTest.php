@@ -106,13 +106,22 @@ class VideoRemoteModerationTest extends TestCase
             'moderation_checked_at' => null,
         ]);
 
-        Http::assertSent(function (ClientRequest $request) use ($videoId, $videoUrl) {
+        $moderationVideoUrl = '';
+
+        Http::assertSent(function (ClientRequest $request) use ($videoId, $videoUrl, &$moderationVideoUrl) {
+            $moderationVideoUrl = (string) $request['video_url'];
+
             return $request->url() === 'https://worker.test/moderate-video'
                 && $request->hasHeader('X-Video-Worker-Token', 'test-worker-token')
                 && $request['video_id'] === $videoId
-                && $request['video_url'] === $videoUrl
+                && $moderationVideoUrl !== $videoUrl
+                && str_contains($moderationVideoUrl, '/storage/moderation-videos/restaurants/')
+                && ! str_contains($moderationVideoUrl, '/manifest/video.m3u8')
                 && $request['callback_url'] === 'https://hungerrush.site/api/v1/internal/videos/moderation-callback';
         });
+
+        $moderationPath = ltrim(str_replace('/storage/', '', (string) parse_url($moderationVideoUrl, PHP_URL_PATH)), '/');
+        Storage::disk('public')->assertExists($moderationPath);
     }
 
     public function test_upload_uses_remote_moderation_when_local_probing_is_disabled(): void
@@ -207,8 +216,66 @@ class VideoRemoteModerationTest extends TestCase
                 && $request['callback_url'] === 'https://hungerrush.site/api/v1/internal/videos/moderation-callback';
         });
 
+        $this->assertMatchesRegularExpression(
+            '#^https://hungerrush\.site/storage/moderation-videos/restaurants/\d+/.*\.mp4$#',
+            $moderationVideoUrl
+        );
+
         $storedPath = ltrim(str_replace('/storage/', '', (string) parse_url($moderationVideoUrl, PHP_URL_PATH)), '/');
         Storage::disk('public')->assertExists($storedPath);
+    }
+
+    public function test_remote_moderation_does_not_fallback_to_cloudflare_manifest_url(): void
+    {
+        config()->set('services.video_processing.stream_provider', 'cloudflare');
+        config()->set('services.video_processing.local_probing_enabled', false);
+        config()->set('services.video_worker.url', 'https://worker.test');
+        config()->set('services.video_worker.token', 'test-worker-token');
+        config()->set('services.video_worker.callback_url', 'https://hungerrush.site/api/v1/internal/videos/moderation-callback');
+
+        Http::fake([
+            'https://worker.test/moderate-video' => Http::response(['queued' => true]),
+        ]);
+
+        $moderationService = new class extends FoodVideoModerationService
+        {
+            public function moderate(string $videoPath): array
+            {
+                throw new \RuntimeException('Local probing should not run for remote moderation.');
+            }
+        };
+
+        $streamService = new class extends CloudflareStreamService
+        {
+            public function upload(string $videoPath, string $originalFilename): array
+            {
+                throw new \RuntimeException('Cloudflare Stream upload is not part of this test.');
+            }
+        };
+
+        $service = new RestaurantVideoIngestionService($moderationService, $streamService);
+        $manifestUrl = 'https://customer-example.cloudflarestream.com/9f3d8f11db3644d49be4f48fd3ab67f1/manifest/video.m3u8';
+        $video = Video::factory()->create([
+            'media_url' => $manifestUrl,
+            'stream_hls_url' => $manifestUrl,
+            'status' => 'draft',
+            'stream_ready' => false,
+            'published_at' => null,
+            'moderation_status' => 'pending',
+            'moderation_reason' => 'Video is being reviewed',
+        ]);
+
+        $service->requestRemoteModeration($video, $manifestUrl);
+
+        Http::assertSentCount(0);
+        $this->assertDatabaseHas('videos', [
+            'id' => $video->id,
+            'status' => 'draft',
+            'stream_ready' => 0,
+            'published_at' => null,
+            'moderation_status' => 'failed',
+            'moderation_reason' => 'Video moderation failed',
+        ]);
     }
 
     public function test_moderation_callback_publishes_or_keeps_video_draft(): void
@@ -355,8 +422,8 @@ class VideoRemoteModerationTest extends TestCase
         $response->assertCreated()
             ->assertJsonPath('data.status', 'draft')
             ->assertJsonPath('data.stream_ready', false)
-            ->assertJsonPath('data.moderation_status', 'failed')
-            ->assertJsonPath('data.moderation_reason', 'Worker unavailable');
+            ->assertJsonPath('data.moderation_status', 'pending')
+            ->assertJsonPath('data.moderation_reason', 'Video is being reviewed');
 
         $this->assertDatabaseHas('videos', [
             'id' => $response->json('data.id'),
