@@ -70,6 +70,72 @@ class CustomerLoyaltyApiTest extends TestCase
             ->assertJsonPath('data.points_balance', 40);
     }
 
+    public function test_loyalty_points_index_only_lists_restaurants_with_positive_points(): void
+    {
+        $customer = User::factory()->create(['role' => 'customer']);
+        $ownerA = User::factory()->create(['role' => 'restaurant_owner']);
+        $ownerB = User::factory()->create(['role' => 'restaurant_owner']);
+        $restaurantWithPoints = Restaurant::factory()->create(['owner_user_id' => $ownerA->id]);
+        $restaurantWithoutPoints = Restaurant::factory()->create(['owner_user_id' => $ownerB->id]);
+
+        LoyaltyPoint::query()->create([
+            'user_id' => $customer->id,
+            'restaurant_id' => $restaurantWithPoints->id,
+            'points_balance' => 60,
+            'total_earned' => 60,
+            'total_redeemed' => 0,
+        ]);
+
+        LoyaltyPoint::query()->create([
+            'user_id' => $customer->id,
+            'restaurant_id' => $restaurantWithoutPoints->id,
+            'points_balance' => 0,
+            'total_earned' => 40,
+            'total_redeemed' => 40,
+        ]);
+
+        $this->actingAs($customer, 'sanctum')
+            ->getJson('/api/v1/customer/loyalty/points')
+            ->assertOk()
+            ->assertJsonPath('data.total_points_balance', 60)
+            ->assertJsonCount(1, 'data.restaurants')
+            ->assertJsonPath('data.restaurants.0.restaurant_id', $restaurantWithPoints->id);
+    }
+
+    public function test_paid_order_awards_twenty_points_per_full_usd_once(): void
+    {
+        $customer = User::factory()->create(['role' => 'customer']);
+        $owner = User::factory()->create(['role' => 'restaurant_owner']);
+        $restaurant = Restaurant::factory()->create(['owner_user_id' => $owner->id]);
+
+        $order = Order::factory()->create([
+            'customer_id' => $customer->id,
+            'restaurant_id' => $restaurant->id,
+            'status' => 'pending',
+            'payment_status' => 'unpaid',
+            'total' => 5.99,
+        ]);
+
+        $order->update(['payment_status' => 'paid']);
+
+        $this->assertDatabaseHas('loyalty_points', [
+            'user_id' => $customer->id,
+            'restaurant_id' => $restaurant->id,
+            'points_balance' => 100,
+            'total_earned' => 100,
+        ]);
+
+        $order->update(['status' => 'delivered']);
+
+        $this->assertSame(
+            1,
+            LoyaltyTransaction::query()
+                ->where('order_id', $order->id)
+                ->where('type', 'earned')
+                ->count()
+        );
+    }
+
     public function test_customer_can_list_offers_and_redeem_only_when_eligible_for_same_restaurant(): void
     {
         $customer = User::factory()->create(['role' => 'customer']);

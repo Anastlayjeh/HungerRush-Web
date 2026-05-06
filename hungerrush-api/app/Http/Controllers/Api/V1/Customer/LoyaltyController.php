@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\LoyaltyOffer;
 use App\Models\LoyaltyPoint;
 use App\Models\LoyaltyTransaction;
-use App\Models\Order;
 use App\Models\Restaurant;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,24 +19,17 @@ class LoyaltyController extends Controller
         $userId = (int) $request->user()->id;
         $hasLoyaltyPointsTable = Schema::hasTable('loyalty_points');
 
-        $orderedRestaurantIds = Order::query()
-            ->where('customer_id', $userId)
-            ->distinct()
-            ->pluck('restaurant_id')
-            ->map(fn ($id) => (int) $id)
-            ->values();
-
-        $pointRestaurantIds = $hasLoyaltyPointsTable
+        $pointsByRestaurant = $hasLoyaltyPointsTable
             ? LoyaltyPoint::query()
                 ->where('user_id', $userId)
-                ->pluck('restaurant_id')
-                ->map(fn ($id) => (int) $id)
-                ->values()
+                ->where('points_balance', '>', 0)
+                ->get()
+                ->keyBy('restaurant_id')
             : collect();
 
-        $restaurantIds = $orderedRestaurantIds
-            ->merge($pointRestaurantIds)
-            ->unique()
+        $restaurantIds = $pointsByRestaurant
+            ->keys()
+            ->map(fn ($id) => (int) $id)
             ->values();
 
         if ($restaurantIds->isEmpty()) {
@@ -54,14 +46,6 @@ class LoyaltyController extends Controller
             ->with('branches:id,restaurant_id,address,phone')
             ->get()
             ->keyBy('id');
-
-        $pointsByRestaurant = $hasLoyaltyPointsTable
-            ? LoyaltyPoint::query()
-                ->where('user_id', $userId)
-                ->whereIn('restaurant_id', $restaurantIds)
-                ->get()
-                ->keyBy('restaurant_id')
-            : collect();
 
         $items = $restaurantIds->map(function (int $restaurantId) use ($restaurants, $pointsByRestaurant) {
             $restaurant = $restaurants->get($restaurantId);

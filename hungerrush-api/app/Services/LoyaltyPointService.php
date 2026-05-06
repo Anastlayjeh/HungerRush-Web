@@ -83,7 +83,8 @@ class LoyaltyPointService
 
     public function calculateEarnedPoints(Order $order): int
     {
-        $totalLbp = (int) floor(((float) $order->total) * self::LBP_PER_USD);
+        $totalUsd = max((float) $order->total, 0.0);
+        $totalLbp = (int) round($totalUsd * self::LBP_PER_USD);
         if ($totalLbp <= 0) {
             return 0;
         }
