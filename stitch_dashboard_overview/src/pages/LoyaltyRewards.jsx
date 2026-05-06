@@ -10,14 +10,12 @@ const REWARD_TYPES = [
 
 const REWARD_STATUSES = [
   ["active", "Active"],
-  ["draft", "Draft"],
   ["archived", "Archived"],
 ];
 
 const REWARD_FILTERS = [
   ["all", "All"],
   ["active", "Active"],
-  ["draft", "Draft"],
   ["archived", "Archived"],
 ];
 
@@ -269,7 +267,7 @@ export default function LoyaltyRewards({ onNavigate, token, user, onLogout }) {
                 setOpen(true);
               }}
             >
-              Create Reward
+              Create Offer
             </button>
           </>
         }
@@ -278,16 +276,17 @@ export default function LoyaltyRewards({ onNavigate, token, user, onLogout }) {
           <div className="mb-6 rounded-xl border border-red-200 bg-red-50 text-red-700 px-4 py-3 text-sm">{error}</div>
         ) : null}
 
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <section className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white p-6 rounded-xl border border-primary/10"><p className="text-sm text-slate-500">Total Points Issued</p><h3 className="text-2xl font-black">{loading ? "..." : fmt(stats.total_points_issued)}</h3></div>
           <div className="bg-white p-6 rounded-xl border border-primary/10"><p className="text-sm text-slate-500">Points Redeemed</p><h3 className="text-2xl font-black">{loading ? "..." : fmt(stats.points_redeemed)}</h3></div>
-          <div className="bg-white p-6 rounded-xl border border-primary/10"><p className="text-sm text-slate-500">Active Members</p><h3 className="text-2xl font-black">{loading ? "..." : fmt(stats.active_members)}</h3></div>
+          <div className="bg-white p-6 rounded-xl border border-primary/10"><p className="text-sm text-slate-500">Active Offers</p><h3 className="text-2xl font-black">{loading ? "..." : fmt(stats.active_offers)}</h3></div>
+          <div className="bg-white p-6 rounded-xl border border-primary/10"><p className="text-sm text-slate-500">Redeemed Offers</p><h3 className="text-2xl font-black">{loading ? "..." : fmt(stats.redeemed_offers)}</h3></div>
         </section>
 
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h3 className="text-xl font-bold">Rewards</h3>
+              <h3 className="text-xl font-bold">Offers</h3>
               <div className="flex flex-wrap gap-2">
                 {REWARD_FILTERS.map(([value, label]) => (
                   <button
@@ -337,7 +336,7 @@ export default function LoyaltyRewards({ onNavigate, token, user, onLogout }) {
                     </button>
                   </div>
                 </article>
-              )) : <div className="col-span-full bg-white p-6 rounded-xl border border-primary/10 text-sm text-slate-500">{loading ? "Loading rewards..." : "No rewards found."}</div>}
+              )) : <div className="col-span-full bg-white p-6 rounded-xl border border-primary/10 text-sm text-slate-500">{loading ? "Loading offers..." : "No offers found."}</div>}
             </div>
           </div>
 
@@ -383,11 +382,11 @@ export default function LoyaltyRewards({ onNavigate, token, user, onLogout }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60">
           <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-visible">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="text-xl font-bold">{form.id ? "Edit Reward" : "Create Reward"}</h3>
+              <h3 className="text-xl font-bold">{form.id ? "Edit Offer" : "Create Offer"}</h3>
               <button className="material-symbols-outlined text-slate-400 hover:text-slate-600" type="button" onClick={() => setOpen(false)}>close</button>
             </div>
             <form className="p-6 space-y-4 overflow-visible" onSubmit={saveReward}>
-              <input className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg text-sm" placeholder="Reward name" type="text" value={form.name} onChange={(event) => setForm((previous) => ({ ...previous, name: event.target.value }))} required />
+              <input className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg text-sm" placeholder="Offer title" type="text" value={form.name} onChange={(event) => setForm((previous) => ({ ...previous, name: event.target.value }))} required />
               <textarea className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg text-sm resize-none" placeholder="Description" rows="3" value={form.description} onChange={(event) => setForm((previous) => ({ ...previous, description: event.target.value }))}></textarea>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <input className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-lg text-sm" type="number" min="0" placeholder="Points" value={form.pointsRequired} onChange={(event) => setForm((previous) => ({ ...previous, pointsRequired: event.target.value }))} required />
@@ -462,7 +461,7 @@ export default function LoyaltyRewards({ onNavigate, token, user, onLogout }) {
               ) : null}
               <div className="pt-2 flex justify-end gap-2">
                 <button className="px-4 py-2 text-sm font-semibold rounded-lg bg-slate-100 hover:bg-slate-200" type="button" onClick={() => setOpen(false)}>Cancel</button>
-                <button className="px-4 py-2 text-sm font-semibold rounded-lg bg-primary text-white hover:bg-primary/90 disabled:opacity-60" type="submit" disabled={saving}>{saving ? "Saving..." : form.id ? "Save Changes" : "Create Reward"}</button>
+                <button className="px-4 py-2 text-sm font-semibold rounded-lg bg-primary text-white hover:bg-primary/90 disabled:opacity-60" type="submit" disabled={saving}>{saving ? "Saving..." : form.id ? "Save Changes" : "Create Offer"}</button>
               </div>
             </form>
           </div>

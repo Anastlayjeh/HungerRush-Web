@@ -46,5 +46,10 @@ class RestaurantLoyaltyOfferApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.required_points', 140)
             ->assertJsonPath('data.is_active', false);
+
+        $this->actingAs($owner, 'sanctum')
+            ->deleteJson("/api/v1/restaurant/loyalty/offers/{$offerId}")
+            ->assertOk()
+            ->assertJsonPath('data.deleted', true);
     }
 }

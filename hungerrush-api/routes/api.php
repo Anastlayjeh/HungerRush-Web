@@ -133,6 +133,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/loyalty/offers', [LoyaltyOfferController::class, 'index']);
         Route::post('/loyalty/offers', [LoyaltyOfferController::class, 'store']);
         Route::patch('/loyalty/offers/{loyaltyOffer}', [LoyaltyOfferController::class, 'update']);
+        Route::delete('/loyalty/offers/{loyaltyOffer}', [LoyaltyOfferController::class, 'destroy']);
 
         Route::get('/analytics', [AnalyticsController::class, 'overview']);
     });

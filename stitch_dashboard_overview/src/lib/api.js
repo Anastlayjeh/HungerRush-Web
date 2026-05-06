@@ -97,6 +97,37 @@ function unwrapList(payload) {
   };
 }
 
+function toLegacyRewardShape(offer) {
+  if (!offer || typeof offer !== "object") {
+    return null;
+  }
+
+  const requiredPoints = Number(
+    offer.required_points ?? offer.points_required ?? 0
+  );
+  const isActive = Boolean(
+    offer.is_active ?? String(offer.status || "").toLowerCase() === "active"
+  );
+
+  return {
+    ...offer,
+    id: offer.id,
+    name: offer.name ?? offer.title ?? "",
+    title: offer.title ?? offer.name ?? "",
+    description: offer.description ?? "",
+    points_required: requiredPoints,
+    required_points: requiredPoints,
+    status: offer.status ?? (isActive ? "active" : "archived"),
+    is_active: isActive,
+    reward_type: offer.reward_type ?? "discount",
+    usage_count: Number(offer.usage_count ?? 0),
+    menu_item: offer.menu_item ?? null,
+    menu_item_id: offer.menu_item_id ?? null,
+    discount_percentage: offer.discount_percentage ?? null,
+    discounted_price: offer.discounted_price ?? null,
+  };
+}
+
 export const api = {
   async login({ email, phone, password, role, deviceName = "dashboard-web" }) {
     const payload = await request("/v1/auth/login", {
@@ -398,7 +429,7 @@ export const api = {
   },
 
   async getLoyaltyOverview(token, params = {}) {
-    return unwrapData(
+    const data = unwrapData(
       await request(
         withQuery("/v1/restaurant/loyalty/overview", {
           q: params.search,
@@ -410,31 +441,84 @@ export const api = {
         }
       )
     );
+
+    if (!data || typeof data !== "object") {
+      return data;
+    }
+
+    return {
+      ...data,
+      rewards: Array.isArray(data.rewards)
+        ? data.rewards.map(toLegacyRewardShape).filter(Boolean)
+        : [],
+      offers: Array.isArray(data.offers)
+        ? data.offers.map(toLegacyRewardShape).filter(Boolean)
+        : [],
+    };
   },
 
   async createLoyaltyReward(token, body) {
-    return unwrapData(
-      await request("/v1/restaurant/loyalty/rewards", {
+    const requiredPoints =
+      body?.required_points ??
+      body?.points_required ??
+      0;
+    const isActive =
+      body?.is_active !== undefined
+        ? Boolean(body.is_active)
+        : String(body?.status || "active").toLowerCase() === "active";
+
+    const data = unwrapData(
+      await request("/v1/restaurant/loyalty/offers", {
         method: "POST",
         token,
-        body,
+        body: {
+          title: String(body?.title ?? body?.name ?? "").trim(),
+          description: body?.description ?? "",
+          required_points: Number(requiredPoints),
+          is_active: isActive,
+        },
       })
     );
+
+    return toLegacyRewardShape(data);
   },
 
   async updateLoyaltyReward(token, rewardId, body) {
-    return unwrapData(
-      await request(`/v1/restaurant/loyalty/rewards/${rewardId}`, {
+    const payload = {};
+    if (body?.title !== undefined || body?.name !== undefined) {
+      payload.title = String(body?.title ?? body?.name ?? "").trim();
+    }
+    if (body?.description !== undefined) {
+      payload.description = body.description;
+    }
+    if (
+      body?.required_points !== undefined ||
+      body?.points_required !== undefined
+    ) {
+      payload.required_points = Number(
+        body?.required_points ?? body?.points_required ?? 0
+      );
+    }
+    if (body?.is_active !== undefined) {
+      payload.is_active = Boolean(body.is_active);
+    } else if (body?.status !== undefined) {
+      payload.is_active = String(body.status).toLowerCase() === "active";
+    }
+
+    const data = unwrapData(
+      await request(`/v1/restaurant/loyalty/offers/${rewardId}`, {
         method: "PATCH",
         token,
-        body,
+        body: payload,
       })
     );
+
+    return toLegacyRewardShape(data);
   },
 
   async deleteLoyaltyReward(token, rewardId) {
     return unwrapData(
-      await request(`/v1/restaurant/loyalty/rewards/${rewardId}`, {
+      await request(`/v1/restaurant/loyalty/offers/${rewardId}`, {
         method: "DELETE",
         token,
       })

@@ -108,6 +108,32 @@ class LoyaltyPointService
             });
     }
 
+    public function syncEligibleOrdersForRestaurant(int $restaurantId): void
+    {
+        if (!$this->loyaltyTablesReady()) {
+            return;
+        }
+
+        $eligibleStatuses = ['delivered', 'completed'];
+
+        Order::query()
+            ->where('restaurant_id', $restaurantId)
+            ->where(function (Builder $query) use ($eligibleStatuses) {
+                $query
+                    ->whereIn('status', $eligibleStatuses)
+                    ->orWhere('payment_status', 'paid');
+            })
+            ->whereDoesntHave('loyaltyTransactions', function (Builder $query) {
+                $query->where('type', 'earned');
+            })
+            ->orderBy('id')
+            ->chunkById(100, function ($orders) {
+                foreach ($orders as $order) {
+                    $this->awardForOrderIfEligible($order);
+                }
+            });
+    }
+
     public function calculateEarnedPoints(Order $order): int
     {
         $totalUsd = max((float) $order->total, 0.0);

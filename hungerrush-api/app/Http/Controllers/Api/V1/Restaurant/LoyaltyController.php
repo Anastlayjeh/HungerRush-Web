@@ -3,109 +3,346 @@
 namespace App\Http\Controllers\Api\V1\Restaurant;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Restaurant\StoreLoyaltyRewardRequest;
-use App\Http\Requests\Restaurant\UpdateLoyaltyRewardRequest;
-use App\Models\LoyaltyMember;
-use App\Models\LoyaltyRedemption;
-use App\Models\LoyaltyReward;
-use App\Models\MenuItem;
+use App\Models\LoyaltyOffer;
+use App\Models\LoyaltyPoint;
+use App\Models\LoyaltyTransaction;
+use App\Models\Order;
 use App\Models\Restaurant;
+use App\Services\LoyaltyPointService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Schema;
 
 class LoyaltyController extends Controller
 {
-    public function overview(Request $request)
+    public function overview(Request $request, LoyaltyPointService $loyaltyPointService)
     {
         $restaurant = $this->resolveRestaurant();
         $search = trim((string) $request->query('q', ''));
-        $status = trim((string) $request->query('status', 'all'));
-        $allowedRewardStatuses = ['active', 'draft', 'archived'];
+        $status = strtolower(trim((string) $request->query('status', 'all')));
 
-        $membersQuery = LoyaltyMember::query()
-            ->where('restaurant_id', $restaurant->id)
-            ->with('customer:id,name,email')
-            ->orderByDesc('points');
-
-        if ($search !== '') {
-            $membersQuery->whereHas(
-                'customer',
-                fn ($builder) => $builder->where('name', 'like', "%{$search}%")
-            );
+        if (Schema::hasTable('loyalty_points') && Schema::hasTable('loyalty_transactions')) {
+            $loyaltyPointService->syncEligibleOrdersForRestaurant((int) $restaurant->id);
         }
 
-        $members = $membersQuery->get();
-        $rewardsQuery = LoyaltyReward::query()->where('restaurant_id', $restaurant->id);
-        if (in_array($status, $allowedRewardStatuses, true)) {
-            $rewardsQuery->where('status', $status);
-        }
-
-        $rewards = $rewardsQuery
-            ->with('menuItem:id,name,price')
-            ->latest()
-            ->get();
-
-        $redemptionsBase = LoyaltyRedemption::query()->where('restaurant_id', $restaurant->id);
-        $pointsRedeemed = (int) (clone $redemptionsBase)->sum('points_spent');
-        $pointsIssued = (int) $members->sum('points') + $pointsRedeemed;
+        $offers = $this->loadOffers($restaurant->id, $status, $search);
+        $stats = $this->buildStats($restaurant->id, $search);
+        $topCustomers = $this->buildTopCustomers($restaurant->id, $search);
 
         return $this->successResponse([
-            'stats' => [
-                'total_points_issued' => $pointsIssued,
-                'points_redeemed' => $pointsRedeemed,
-                'active_members' => (int) $members->where('orders_count', '>', 0)->count(),
-            ],
-            'rewards' => $rewards->map(fn (LoyaltyReward $reward) => $this->transformReward($reward))->values(),
-            'top_customers' => $members->map(fn (LoyaltyMember $member) => $this->transformMember($member))->values(),
-            'weekly_trend' => $this->buildWeeklyTrend($restaurant),
+            'stats' => $stats,
+            'rewards' => $offers->map(fn (LoyaltyOffer $offer) => $this->transformOffer($offer))->values(),
+            'offers' => $offers->map(fn (LoyaltyOffer $offer) => $this->transformOffer($offer))->values(),
+            'top_customers' => $topCustomers,
+            'weekly_trend' => $this->buildWeeklyTrend($restaurant->id),
         ]);
     }
 
-    public function storeReward(StoreLoyaltyRewardRequest $request)
+    public function storeReward(Request $request)
     {
+        if (!Schema::hasTable('loyalty_offers')) {
+            return $this->errorResponse(
+                'Loyalty offers are not available yet.',
+                ['loyalty' => ['Loyalty offers storage is not configured.']],
+                'loyalty_not_ready',
+                503
+            );
+        }
+
         $restaurant = $this->resolveRestaurant();
-        $payload = $this->sanitizeRewardPayload($request->validated(), $restaurant);
-        $reward = $restaurant->loyaltyRewards()->create($payload);
-        $reward->load('menuItem:id,name,price');
+        $validated = $request->validate([
+            'title' => ['sometimes', 'string', 'max:160'],
+            'name' => ['sometimes', 'string', 'max:160'],
+            'description' => ['nullable', 'string'],
+            'required_points' => ['sometimes', 'integer', 'min:0'],
+            'points_required' => ['sometimes', 'integer', 'min:0'],
+            'is_active' => ['sometimes', 'boolean'],
+            'status' => ['sometimes', 'in:active,draft,archived'],
+        ]);
+
+        $title = trim((string) ($validated['title'] ?? $validated['name'] ?? ''));
+        if ($title === '') {
+            return $this->errorResponse(
+                'Title is required.',
+                ['title' => ['Please provide a title for this loyalty offer.']],
+                'validation_error',
+                422
+            );
+        }
+
+        $requiredPoints = $validated['required_points'] ?? $validated['points_required'] ?? null;
+        if ($requiredPoints === null) {
+            return $this->errorResponse(
+                'Required points are required.',
+                ['required_points' => ['Please provide required points.']],
+                'validation_error',
+                422
+            );
+        }
+
+        $isActive = array_key_exists('is_active', $validated)
+            ? (bool) $validated['is_active']
+            : (($validated['status'] ?? 'active') === 'active');
+
+        $offer = LoyaltyOffer::query()->create([
+            'restaurant_id' => $restaurant->id,
+            'title' => $title,
+            'description' => isset($validated['description']) ? trim((string) $validated['description']) : null,
+            'required_points' => (int) $requiredPoints,
+            'is_active' => $isActive,
+        ]);
 
         return $this->successResponse(
-            $this->transformReward($reward),
-            message: 'Loyalty reward created successfully.',
+            $this->transformOffer($offer),
+            message: 'Loyalty offer created successfully.',
             status: 201
         );
     }
 
-    public function updateReward(UpdateLoyaltyRewardRequest $request, LoyaltyReward $loyaltyReward)
+    public function updateReward(Request $request, string $loyaltyReward)
     {
-        $restaurant = $this->resolveRestaurant();
-        abort_unless($loyaltyReward->restaurant_id === $restaurant->id, 404);
+        if (!Schema::hasTable('loyalty_offers')) {
+            return $this->errorResponse(
+                'Loyalty offers are not available yet.',
+                ['loyalty' => ['Loyalty offers storage is not configured.']],
+                'loyalty_not_ready',
+                503
+            );
+        }
 
-        $payload = $this->sanitizeRewardPayload($request->validated(), $restaurant, $loyaltyReward);
-        $loyaltyReward->update($payload);
+        $restaurant = $this->resolveRestaurant();
+        $offerId = trim($loyaltyReward);
+        $offer = LoyaltyOffer::query()->find($offerId);
+        abort_unless($offer !== null && (int) $offer->restaurant_id === (int) $restaurant->id, 404);
+
+        $validated = $request->validate([
+            'title' => ['sometimes', 'string', 'max:160'],
+            'name' => ['sometimes', 'string', 'max:160'],
+            'description' => ['sometimes', 'nullable', 'string'],
+            'required_points' => ['sometimes', 'integer', 'min:0'],
+            'points_required' => ['sometimes', 'integer', 'min:0'],
+            'is_active' => ['sometimes', 'boolean'],
+            'status' => ['sometimes', 'in:active,draft,archived'],
+        ]);
+
+        $payload = [];
+        if (array_key_exists('title', $validated) || array_key_exists('name', $validated)) {
+            $payload['title'] = trim((string) ($validated['title'] ?? $validated['name'] ?? $offer->title));
+        }
+        if (array_key_exists('description', $validated)) {
+            $payload['description'] = $validated['description'] !== null
+                ? trim((string) $validated['description'])
+                : null;
+        }
+        if (array_key_exists('required_points', $validated) || array_key_exists('points_required', $validated)) {
+            $payload['required_points'] = (int) ($validated['required_points'] ?? $validated['points_required']);
+        }
+        if (array_key_exists('is_active', $validated)) {
+            $payload['is_active'] = (bool) $validated['is_active'];
+        } elseif (array_key_exists('status', $validated)) {
+            $payload['is_active'] = $validated['status'] === 'active';
+        }
+
+        if (!empty($payload)) {
+            $offer->update($payload);
+        }
 
         return $this->successResponse(
-            $this->transformReward($loyaltyReward->refresh()->load('menuItem:id,name,price')),
-            message: 'Loyalty reward updated successfully.'
+            $this->transformOffer($offer->refresh()),
+            message: 'Loyalty offer updated successfully.'
         );
     }
 
-    public function destroyReward(LoyaltyReward $loyaltyReward)
+    public function destroyReward(string $loyaltyReward)
     {
+        if (!Schema::hasTable('loyalty_offers')) {
+            return $this->errorResponse(
+                'Loyalty offers are not available yet.',
+                ['loyalty' => ['Loyalty offers storage is not configured.']],
+                'loyalty_not_ready',
+                503
+            );
+        }
+
         $restaurant = $this->resolveRestaurant();
-        abort_unless($loyaltyReward->restaurant_id === $restaurant->id, 404);
+        $offerId = trim($loyaltyReward);
+        $offer = LoyaltyOffer::query()->find($offerId);
+        abort_unless($offer !== null && (int) $offer->restaurant_id === (int) $restaurant->id, 404);
 
-        $loyaltyReward->delete();
+        $offer->delete();
 
-        return $this->successResponse(['deleted' => true], message: 'Loyalty reward deleted successfully.');
+        return $this->successResponse(['deleted' => true], message: 'Loyalty offer deleted successfully.');
     }
 
-    private function buildWeeklyTrend(Restaurant $restaurant): array
+    private function loadOffers(int $restaurantId, string $status, string $search)
     {
+        if (!Schema::hasTable('loyalty_offers')) {
+            return collect();
+        }
+
+        $query = LoyaltyOffer::query()
+            ->where('restaurant_id', $restaurantId)
+            ->withCount([
+                'transactions as usage_count' => fn (Builder $builder) => $builder->where('type', 'redeemed'),
+            ])
+            ->latest();
+
+        if ($search !== '') {
+            $query->where(function (Builder $builder) use ($search) {
+                $builder
+                    ->where('title', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
+        if ($status === 'active') {
+            $query->where('is_active', true);
+        } elseif (in_array($status, ['archived', 'draft', 'inactive'], true)) {
+            $query->where('is_active', false);
+        }
+
+        return $query->get();
+    }
+
+    private function buildStats(int $restaurantId, string $search): array
+    {
+        $pointsIssued = 0;
+        $pointsRedeemed = 0;
+        $redeemedOffers = 0;
+
+        if (Schema::hasTable('loyalty_transactions')) {
+            $base = LoyaltyTransaction::query()->where('restaurant_id', $restaurantId);
+            if ($search !== '' && Schema::hasTable('users')) {
+                $base->whereHas('user', function (Builder $builder) use ($search) {
+                    $builder
+                        ->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                });
+            }
+
+            $pointsIssued = (int) (clone $base)->where('type', 'earned')->sum('points');
+            $pointsRedeemed = (int) (clone $base)->where('type', 'redeemed')->sum('points');
+            $redeemedOffers = (int) (clone $base)->where('type', 'redeemed')->whereNotNull('offer_id')->count();
+        }
+
+        $activeOffers = 0;
+        $offersCount = 0;
+        if (Schema::hasTable('loyalty_offers')) {
+            $offerBase = LoyaltyOffer::query()->where('restaurant_id', $restaurantId);
+            if ($search !== '') {
+                $offerBase->where(function (Builder $builder) use ($search) {
+                    $builder
+                        ->where('title', 'like', "%{$search}%")
+                        ->orWhere('description', 'like', "%{$search}%");
+                });
+            }
+            $offersCount = (int) (clone $offerBase)->count();
+            $activeOffers = (int) (clone $offerBase)->where('is_active', true)->count();
+        }
+
+        $activeMembers = 0;
+        if (Schema::hasTable('loyalty_points')) {
+            $membersBase = LoyaltyPoint::query()
+                ->where('restaurant_id', $restaurantId)
+                ->where(function (Builder $builder) {
+                    $builder
+                        ->where('points_balance', '>', 0)
+                        ->orWhere('total_earned', '>', 0);
+                });
+
+            if ($search !== '' && Schema::hasTable('users')) {
+                $membersBase->whereHas('user', function (Builder $builder) use ($search) {
+                    $builder
+                        ->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                });
+            }
+
+            $activeMembers = (int) (clone $membersBase)->distinct('user_id')->count('user_id');
+        }
+
+        return [
+            'total_points_issued' => $pointsIssued,
+            'points_redeemed' => $pointsRedeemed,
+            'redeemed_offers' => $redeemedOffers,
+            'active_members' => $activeMembers,
+            'active_offers' => $activeOffers,
+            'offers_count' => $offersCount,
+        ];
+    }
+
+    private function buildTopCustomers(int $restaurantId, string $search): array
+    {
+        if (!Schema::hasTable('loyalty_points')) {
+            return [];
+        }
+
+        $query = LoyaltyPoint::query()
+            ->where('restaurant_id', $restaurantId)
+            ->with('user:id,name,email')
+            ->orderByDesc('points_balance')
+            ->limit(20);
+
+        if ($search !== '' && Schema::hasTable('users')) {
+            $query->whereHas('user', function (Builder $builder) use ($search) {
+                $builder
+                    ->where('name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%");
+            });
+        }
+
+        $pointsRows = $query->get();
+        $customerIds = $pointsRows
+            ->pluck('user_id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->values()
+            ->all();
+
+        $ordersCountByCustomer = collect();
+        if (Schema::hasTable('orders') && $customerIds !== []) {
+            $ordersCountByCustomer = Order::query()
+                ->where('restaurant_id', $restaurantId)
+                ->whereIn('customer_id', $customerIds)
+                ->selectRaw('customer_id, COUNT(*) as orders_count')
+                ->groupBy('customer_id')
+                ->pluck('orders_count', 'customer_id');
+        }
+
+        return $pointsRows->map(function (LoyaltyPoint $points) use ($ordersCountByCustomer) {
+            $ordersCount = (int) ($ordersCountByCustomer->get((int) $points->user_id, 0));
+            return [
+                'id' => $points->id,
+                'customer_id' => $points->user_id,
+                'restaurant_id' => $points->restaurant_id,
+                'points' => (int) $points->points_balance,
+                'orders_count' => $ordersCount,
+                'tier' => $this->tierForPoints((int) $points->total_earned),
+                'last_activity_at' => optional($points->updated_at)->toISOString(),
+                'customer' => $points->user ? [
+                    'id' => $points->user->id,
+                    'name' => $points->user->name,
+                    'email' => $points->user->email,
+                ] : null,
+                'points_balance' => (int) $points->points_balance,
+                'total_earned' => (int) $points->total_earned,
+                'total_redeemed' => (int) $points->total_redeemed,
+            ];
+        })->values()->all();
+    }
+
+    private function buildWeeklyTrend(int $restaurantId): array
+    {
+        if (!Schema::hasTable('loyalty_transactions')) {
+            return $this->emptyWeeklyTrend();
+        }
+
         $start = now()->subDays(6)->startOfDay();
-        $rows = LoyaltyRedemption::query()
-            ->where('restaurant_id', $restaurant->id)
+        $rows = LoyaltyTransaction::query()
+            ->where('restaurant_id', $restaurantId)
+            ->where('type', 'redeemed')
             ->where('created_at', '>=', $start)
-            ->selectRaw('DATE(created_at) as day, SUM(points_spent) as points, COUNT(*) as redemptions')
+            ->selectRaw('DATE(created_at) as day, SUM(points) as points, COUNT(*) as redemptions')
             ->groupBy('day')
             ->get()
             ->keyBy('day');
@@ -114,7 +351,6 @@ class LoyaltyController extends Controller
         for ($offset = 6; $offset >= 0; $offset--) {
             $day = now()->subDays($offset)->toDateString();
             $row = $rows->get($day);
-
             $trend[] = [
                 'day' => $day,
                 'label' => now()->subDays($offset)->format('D'),
@@ -126,104 +362,59 @@ class LoyaltyController extends Controller
         return $trend;
     }
 
-    private function transformReward(LoyaltyReward $reward): array
+    private function emptyWeeklyTrend(): array
     {
-        $menuItem = $reward->menuItem;
-        $menuItemPrice = $menuItem?->price !== null ? (float) $menuItem->price : null;
-        $discountPercentage = $reward->discount_percentage !== null ? (float) $reward->discount_percentage : null;
-        $discountedPrice = null;
-
-        if ($menuItemPrice !== null && $discountPercentage !== null) {
-            $discountedPrice = round(max($menuItemPrice - ($menuItemPrice * ($discountPercentage / 100)), 0), 2);
+        $trend = [];
+        for ($offset = 6; $offset >= 0; $offset--) {
+            $trend[] = [
+                'day' => now()->subDays($offset)->toDateString(),
+                'label' => now()->subDays($offset)->format('D'),
+                'points' => 0,
+                'redemptions' => 0,
+            ];
         }
 
+        return $trend;
+    }
+
+    private function transformOffer(LoyaltyOffer $offer): array
+    {
+        $status = (bool) $offer->is_active ? 'active' : 'archived';
+        $usageCount = (int) ($offer->usage_count ?? 0);
+
         return [
-            'id' => $reward->id,
-            'restaurant_id' => $reward->restaurant_id,
-            'name' => $reward->name,
-            'description' => $reward->description,
-            'points_required' => (int) $reward->points_required,
-            'reward_type' => $reward->reward_type,
-            'status' => $reward->status,
-            'menu_item_id' => $reward->menu_item_id,
-            'menu_item' => $menuItem ? [
-                'id' => $menuItem->id,
-                'name' => $menuItem->name,
-                'price' => $menuItemPrice,
-            ] : null,
-            'discount_percentage' => $discountPercentage,
-            'discounted_price' => $discountedPrice,
-            'usage_count' => (int) $reward->usage_count,
-            'created_at' => optional($reward->created_at)->toISOString(),
-            'updated_at' => optional($reward->updated_at)->toISOString(),
+            'id' => $offer->id,
+            'restaurant_id' => $offer->restaurant_id,
+            'title' => $offer->title,
+            'description' => $offer->description,
+            'required_points' => (int) $offer->required_points,
+            'is_active' => (bool) $offer->is_active,
+            'created_at' => optional($offer->created_at)->toISOString(),
+            'updated_at' => optional($offer->updated_at)->toISOString(),
+
+            // Legacy dashboard compatibility fields.
+            'name' => $offer->title,
+            'points_required' => (int) $offer->required_points,
+            'reward_type' => 'discount',
+            'status' => $status,
+            'usage_count' => $usageCount,
+            'menu_item_id' => null,
+            'menu_item' => null,
+            'discount_percentage' => null,
+            'discounted_price' => null,
         ];
     }
 
-    private function sanitizeRewardPayload(array $validated, Restaurant $restaurant, ?LoyaltyReward $existing = null): array
+    private function tierForPoints(int $totalEarned): string
     {
-        $payload = $validated;
-        $nextType = $validated['reward_type'] ?? $existing?->reward_type ?? 'discount';
-        $requiresMenuDiscount = in_array($nextType, ['discount', 'free_item'], true);
-
-        if (!$requiresMenuDiscount) {
-            $payload['menu_item_id'] = null;
-            $payload['discount_percentage'] = null;
-
-            return $payload;
+        if ($totalEarned >= 3000) {
+            return 'gold';
+        }
+        if ($totalEarned >= 1000) {
+            return 'silver';
         }
 
-        $menuItemId = array_key_exists('menu_item_id', $validated)
-            ? $validated['menu_item_id']
-            : $existing?->menu_item_id;
-        $discountPercentage = array_key_exists('discount_percentage', $validated)
-            ? $validated['discount_percentage']
-            : $existing?->discount_percentage;
-
-        if (!$menuItemId) {
-            throw ValidationException::withMessages([
-                'menu_item_id' => ['Please select a menu item for this reward type.'],
-            ]);
-        }
-
-        if ($discountPercentage === null) {
-            throw ValidationException::withMessages([
-                'discount_percentage' => ['Please provide a discount percentage for this reward type.'],
-            ]);
-        }
-
-        $belongsToRestaurant = MenuItem::query()
-            ->whereKey($menuItemId)
-            ->whereHas('category', fn ($builder) => $builder->where('restaurant_id', $restaurant->id))
-            ->exists();
-
-        if (!$belongsToRestaurant) {
-            throw ValidationException::withMessages([
-                'menu_item_id' => ['Selected menu item must belong to your restaurant.'],
-            ]);
-        }
-
-        $payload['menu_item_id'] = (int) $menuItemId;
-        $payload['discount_percentage'] = round((float) $discountPercentage, 2);
-
-        return $payload;
-    }
-
-    private function transformMember(LoyaltyMember $member): array
-    {
-        return [
-            'id' => $member->id,
-            'customer_id' => $member->customer_id,
-            'restaurant_id' => $member->restaurant_id,
-            'points' => (int) $member->points,
-            'orders_count' => (int) $member->orders_count,
-            'tier' => $member->tier,
-            'last_activity_at' => optional($member->last_activity_at)->toISOString(),
-            'customer' => $member->customer ? [
-                'id' => $member->customer->id,
-                'name' => $member->customer->name,
-                'email' => $member->customer->email,
-            ] : null,
-        ];
+        return 'bronze';
     }
 
     private function resolveRestaurant(): Restaurant

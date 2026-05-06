@@ -110,6 +110,27 @@ class LoyaltyOfferController extends Controller
         );
     }
 
+    public function destroy(string $loyaltyOffer)
+    {
+        if (!$this->offersTableReady()) {
+            return $this->errorResponse(
+                'Loyalty offers are not available yet.',
+                ['loyalty' => ['Loyalty offers storage is not configured.']],
+                'loyalty_not_ready',
+                503
+            );
+        }
+
+        $restaurant = $this->resolveRestaurant();
+        $offerId = trim($loyaltyOffer);
+        $offer = LoyaltyOffer::query()->find($offerId);
+        abort_unless($offer !== null && (int) $offer->restaurant_id === (int) $restaurant->id, 404);
+
+        $offer->delete();
+
+        return $this->successResponse(['deleted' => true], message: 'Loyalty offer deleted successfully.');
+    }
+
     private function transformOffer(LoyaltyOffer $offer): array
     {
         return [

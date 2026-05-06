@@ -2,7 +2,8 @@
 
 namespace Tests\Feature\Api\V1\Restaurant;
 
-use App\Models\LoyaltyMember;
+use App\Models\LoyaltyPoint;
+use App\Models\LoyaltyTransaction;
 use App\Models\MenuCategory;
 use App\Models\MenuItem;
 use App\Models\Order;
@@ -289,30 +290,59 @@ class RestaurantExtendedApiTest extends TestCase
         $restaurant = Restaurant::factory()->create(['owner_user_id' => $owner->id]);
         $customer = User::factory()->create(['role' => 'customer']);
         $category = MenuCategory::factory()->create(['restaurant_id' => $restaurant->id]);
-        $menuItem = MenuItem::factory()->create([
-            'category_id' => $category->id,
-            'price' => 12.50,
-        ]);
-        LoyaltyMember::factory()->create([
-            'restaurant_id' => $restaurant->id,
+        $menuItem = MenuItem::factory()->create(['category_id' => $category->id, 'price' => 12.50]);
+        $order = Order::factory()->create([
             'customer_id' => $customer->id,
-            'points' => 1200,
-            'orders_count' => 8,
+            'restaurant_id' => $restaurant->id,
+            'status' => 'pending',
+            'payment_status' => 'unpaid',
+            'total' => 49.50,
+        ]);
+
+        LoyaltyPoint::query()->create([
+            'user_id' => $customer->id,
+            'restaurant_id' => $restaurant->id,
+            'points_balance' => 1200,
+            'total_earned' => 1800,
+            'total_redeemed' => 600,
+        ]);
+        LoyaltyTransaction::query()->create([
+            'user_id' => $customer->id,
+            'restaurant_id' => $restaurant->id,
+            'order_id' => $order->id,
+            'offer_id' => null,
+            'points' => 1800,
+            'type' => 'earned',
+            'description' => 'Points earned from order.',
+        ]);
+        LoyaltyTransaction::query()->create([
+            'user_id' => $customer->id,
+            'restaurant_id' => $restaurant->id,
+            'order_id' => null,
+            'offer_id' => null,
+            'points' => 600,
+            'type' => 'redeemed',
+            'description' => 'Points redeemed in-store.',
         ]);
 
         $createResponse = $this->actingAs($owner, 'sanctum')
             ->postJson('/api/v1/restaurant/loyalty/rewards', [
-                'name' => 'Free Delivery Weekend',
+                'name' => 'Free Dessert',
                 'description' => 'No delivery fee for top members.',
                 'points_required' => 700,
-                'reward_type' => 'free_delivery',
                 'status' => 'active',
             ]);
 
         $createResponse->assertCreated()
-            ->assertJsonPath('data.name', 'Free Delivery Weekend');
+            ->assertJsonPath('data.name', 'Free Dessert')
+            ->assertJsonPath('data.status', 'active');
 
         $rewardId = $createResponse->json('data.id');
+        $this->assertDatabaseHas('loyalty_offers', [
+            'id' => $rewardId,
+            'restaurant_id' => $restaurant->id,
+            'title' => 'Free Dessert',
+        ]);
 
         $this->actingAs($owner, 'sanctum')
             ->patchJson("/api/v1/restaurant/loyalty/rewards/{$rewardId}", [
@@ -323,22 +353,18 @@ class RestaurantExtendedApiTest extends TestCase
 
         $this->actingAs($owner, 'sanctum')
             ->postJson('/api/v1/restaurant/loyalty/rewards', [
-                'name' => 'Welcome Discount',
+                'name' => 'Burger Combo Offer',
                 'description' => 'Starter discount for first redemptions.',
                 'points_required' => 300,
-                'reward_type' => 'discount',
-                'menu_item_id' => $menuItem->id,
-                'discount_percentage' => 15,
                 'status' => 'active',
             ])
             ->assertCreated();
 
         $this->actingAs($owner, 'sanctum')
             ->postJson('/api/v1/restaurant/loyalty/rewards', [
-                'name' => 'Draft Reward',
-                'description' => 'Still being prepared.',
+                'name' => 'Paused Offer',
+                'description' => 'Temporarily disabled.',
                 'points_required' => 500,
-                'reward_type' => 'free_delivery',
                 'status' => 'draft',
             ])
             ->assertCreated();
@@ -347,6 +373,9 @@ class RestaurantExtendedApiTest extends TestCase
             ->getJson('/api/v1/restaurant/loyalty/overview')
             ->assertOk()
             ->assertJsonPath('data.stats.active_members', 1)
+            ->assertJsonPath('data.stats.total_points_issued', 1800)
+            ->assertJsonPath('data.stats.points_redeemed', 600)
+            ->assertJsonPath('data.stats.active_offers', 1)
             ->assertJsonCount(3, 'data.rewards')
             ->assertJsonCount(1, 'data.top_customers');
 
@@ -354,24 +383,27 @@ class RestaurantExtendedApiTest extends TestCase
             ->getJson('/api/v1/restaurant/loyalty/overview?status=active')
             ->assertOk()
             ->assertJsonCount(1, 'data.rewards')
-            ->assertJsonPath('data.rewards.0.status', 'active');
+            ->assertJsonPath('data.rewards.0.is_active', true);
 
         $this->actingAs($owner, 'sanctum')
             ->getJson('/api/v1/restaurant/loyalty/overview?status=draft')
             ->assertOk()
-            ->assertJsonCount(1, 'data.rewards')
-            ->assertJsonPath('data.rewards.0.status', 'draft');
+            ->assertJsonCount(2, 'data.rewards');
 
         $this->actingAs($owner, 'sanctum')
             ->getJson('/api/v1/restaurant/loyalty/overview?status=archived')
             ->assertOk()
-            ->assertJsonCount(1, 'data.rewards')
+            ->assertJsonCount(2, 'data.rewards')
             ->assertJsonPath('data.rewards.0.status', 'archived');
 
         $this->actingAs($owner, 'sanctum')
             ->deleteJson("/api/v1/restaurant/loyalty/rewards/{$rewardId}")
             ->assertOk()
             ->assertJsonPath('data.deleted', true);
+
+        $this->assertDatabaseMissing('loyalty_offers', [
+            'id' => $rewardId,
+        ]);
 
         $this->actingAs($owner, 'sanctum')
             ->getJson('/api/v1/restaurant/loyalty/overview')
