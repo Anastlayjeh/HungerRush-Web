@@ -6,11 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Models\LoyaltyOffer;
 use App\Models\Restaurant;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class LoyaltyOfferController extends Controller
 {
     public function index()
     {
+        if (!$this->offersTableReady()) {
+            return $this->successResponse([]);
+        }
+
         $restaurant = $this->resolveRestaurant();
         $offers = LoyaltyOffer::query()
             ->where('restaurant_id', $restaurant->id)
@@ -22,6 +27,15 @@ class LoyaltyOfferController extends Controller
 
     public function store(Request $request)
     {
+        if (!$this->offersTableReady()) {
+            return $this->errorResponse(
+                'Loyalty offers are not available yet.',
+                ['loyalty' => ['Loyalty offers storage is not configured.']],
+                'loyalty_not_ready',
+                503
+            );
+        }
+
         $restaurant = $this->resolveRestaurant();
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:160'],
@@ -45,10 +59,23 @@ class LoyaltyOfferController extends Controller
         );
     }
 
-    public function update(Request $request, LoyaltyOffer $loyaltyOffer)
+    public function update(Request $request, string $loyaltyOffer)
     {
+        if (!$this->offersTableReady()) {
+            return $this->errorResponse(
+                'Loyalty offers are not available yet.',
+                ['loyalty' => ['Loyalty offers storage is not configured.']],
+                'loyalty_not_ready',
+                503
+            );
+        }
+
+        $offerId = trim($loyaltyOffer);
+        $offer = LoyaltyOffer::query()->find($offerId);
+        abort_unless($offer !== null, 404);
+
         $restaurant = $this->resolveRestaurant();
-        abort_unless($loyaltyOffer->restaurant_id === $restaurant->id, 404);
+        abort_unless($offer->restaurant_id === $restaurant->id, 404);
 
         $validated = $request->validate([
             'title' => ['sometimes', 'string', 'max:160'],
@@ -74,11 +101,11 @@ class LoyaltyOfferController extends Controller
         }
 
         if (!empty($payload)) {
-            $loyaltyOffer->update($payload);
+            $offer->update($payload);
         }
 
         return $this->successResponse(
-            $this->transformOffer($loyaltyOffer->refresh()),
+            $this->transformOffer($offer->refresh()),
             message: 'Loyalty offer updated successfully.'
         );
     }
@@ -103,5 +130,10 @@ class LoyaltyOfferController extends Controller
             ['owner_user_id' => auth()->id()],
             ['name' => 'My Restaurant', 'status' => 'active']
         );
+    }
+
+    private function offersTableReady(): bool
+    {
+        return Schema::hasTable('loyalty_offers');
     }
 }

@@ -22,6 +22,7 @@ use App\Services\CloudflareStreamService;
 use App\Services\OrderNotificationService;
 use App\Services\OrderStatusTransitionService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -68,12 +69,19 @@ class DashboardController extends Controller
     public function restaurants(Request $request)
     {
         $this->assertAdmin($request);
-        $restaurants = Restaurant::query()
+        $query = Restaurant::query()
             ->with(['owner:id,name,email,phone,role,status,last_login_at,email_verified_at,created_at,updated_at', 'branches'])
-            ->withCount(['orders', 'reviews'])
-            ->withAvg('reviews', 'rating')
-            ->latest()
-            ->paginate(30);
+            ->latest();
+
+        if ($this->tableIsQueryable('orders')) {
+            $query->withCount('orders');
+        }
+
+        if ($this->tableIsQueryable('reviews')) {
+            $query->withCount('reviews')->withAvg('reviews', 'rating');
+        }
+
+        $restaurants = $query->paginate(30);
 
         return $this->successResponse(RestaurantResource::collection($restaurants->items()), [
             'current_page' => $restaurants->currentPage(),
@@ -629,5 +637,20 @@ class DashboardController extends Controller
         $normalized = strtolower(trim($email));
 
         return $normalized === '' ? null : $normalized;
+    }
+
+    private function tableIsQueryable(string $table): bool
+    {
+        if (!Schema::hasTable($table)) {
+            return false;
+        }
+
+        try {
+            DB::table($table)->limit(1)->get();
+
+            return true;
+        } catch (\Throwable) {
+            return false;
+        }
     }
 }

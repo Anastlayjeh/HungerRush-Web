@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\Models\Restaurant;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class LoyaltyController extends Controller
@@ -17,6 +18,7 @@ class LoyaltyController extends Controller
     public function index(Request $request)
     {
         $userId = (int) $request->user()->id;
+        $hasLoyaltyPointsTable = Schema::hasTable('loyalty_points');
 
         $orderedRestaurantIds = Order::query()
             ->where('customer_id', $userId)
@@ -25,11 +27,13 @@ class LoyaltyController extends Controller
             ->map(fn ($id) => (int) $id)
             ->values();
 
-        $pointRestaurantIds = LoyaltyPoint::query()
-            ->where('user_id', $userId)
-            ->pluck('restaurant_id')
-            ->map(fn ($id) => (int) $id)
-            ->values();
+        $pointRestaurantIds = $hasLoyaltyPointsTable
+            ? LoyaltyPoint::query()
+                ->where('user_id', $userId)
+                ->pluck('restaurant_id')
+                ->map(fn ($id) => (int) $id)
+                ->values()
+            : collect();
 
         $restaurantIds = $orderedRestaurantIds
             ->merge($pointRestaurantIds)
@@ -51,11 +55,13 @@ class LoyaltyController extends Controller
             ->get()
             ->keyBy('id');
 
-        $pointsByRestaurant = LoyaltyPoint::query()
-            ->where('user_id', $userId)
-            ->whereIn('restaurant_id', $restaurantIds)
-            ->get()
-            ->keyBy('restaurant_id');
+        $pointsByRestaurant = $hasLoyaltyPointsTable
+            ? LoyaltyPoint::query()
+                ->where('user_id', $userId)
+                ->whereIn('restaurant_id', $restaurantIds)
+                ->get()
+                ->keyBy('restaurant_id')
+            : collect();
 
         $items = $restaurantIds->map(function (int $restaurantId) use ($restaurants, $pointsByRestaurant) {
             $restaurant = $restaurants->get($restaurantId);
@@ -83,10 +89,13 @@ class LoyaltyController extends Controller
 
     public function show(Request $request, Restaurant $restaurant)
     {
-        $points = LoyaltyPoint::query()
-            ->where('user_id', $request->user()->id)
-            ->where('restaurant_id', $restaurant->id)
-            ->first();
+        $points = null;
+        if (Schema::hasTable('loyalty_points')) {
+            $points = LoyaltyPoint::query()
+                ->where('user_id', $request->user()->id)
+                ->where('restaurant_id', $restaurant->id)
+                ->first();
+        }
 
         return $this->successResponse(
             $this->transformRestaurantPoints(
@@ -100,6 +109,10 @@ class LoyaltyController extends Controller
 
     public function offers(Restaurant $restaurant)
     {
+        if (!Schema::hasTable('loyalty_offers')) {
+            return $this->successResponse([]);
+        }
+
         $offers = LoyaltyOffer::query()
             ->where('restaurant_id', $restaurant->id)
             ->where('is_active', true)
@@ -109,9 +122,24 @@ class LoyaltyController extends Controller
         return $this->successResponse($offers->map(fn (LoyaltyOffer $offer) => $this->transformOffer($offer))->values());
     }
 
-    public function redeem(Request $request, LoyaltyOffer $loyaltyOffer)
+    public function redeem(Request $request, string $loyaltyOffer)
     {
-        if (!$loyaltyOffer->is_active) {
+        if (!Schema::hasTable('loyalty_points')
+            || !Schema::hasTable('loyalty_transactions')
+            || !Schema::hasTable('loyalty_offers')) {
+            return $this->errorResponse(
+                'Loyalty redemption is not available yet.',
+                ['loyalty' => ['Loyalty storage is not configured.']],
+                'loyalty_not_ready',
+                503
+            );
+        }
+
+        $offerId = trim($loyaltyOffer);
+        $offer = LoyaltyOffer::query()->find($offerId);
+        abort_unless($offer !== null, 404);
+
+        if (!$offer->is_active) {
             return $this->errorResponse(
                 'This loyalty offer is currently inactive.',
                 ['offer' => ['Offer is inactive.']],
@@ -120,12 +148,12 @@ class LoyaltyController extends Controller
         }
 
         $userId = (int) $request->user()->id;
-        $requiredPoints = (int) $loyaltyOffer->required_points;
+        $requiredPoints = (int) $offer->required_points;
 
-        $points = DB::transaction(function () use ($userId, $loyaltyOffer, $requiredPoints) {
+        $points = DB::transaction(function () use ($userId, $offer, $requiredPoints) {
             $ledger = LoyaltyPoint::query()
                 ->where('user_id', $userId)
-                ->where('restaurant_id', $loyaltyOffer->restaurant_id)
+                ->where('restaurant_id', $offer->restaurant_id)
                 ->lockForUpdate()
                 ->first();
 
@@ -148,12 +176,12 @@ class LoyaltyController extends Controller
 
             LoyaltyTransaction::query()->create([
                 'user_id' => $userId,
-                'restaurant_id' => $loyaltyOffer->restaurant_id,
+                'restaurant_id' => $offer->restaurant_id,
                 'order_id' => null,
-                'offer_id' => $loyaltyOffer->id,
+                'offer_id' => $offer->id,
                 'points' => $requiredPoints,
                 'type' => 'redeemed',
-                'description' => "Redeemed loyalty offer: {$loyaltyOffer->title}",
+                'description' => "Redeemed loyalty offer: {$offer->title}",
             ]);
 
             return $ledger->refresh();
@@ -161,9 +189,9 @@ class LoyaltyController extends Controller
 
         return $this->successResponse([
             'redeemed' => true,
-            'offer' => $this->transformOffer($loyaltyOffer),
+            'offer' => $this->transformOffer($offer),
             'points' => [
-                'restaurant_id' => $loyaltyOffer->restaurant_id,
+                'restaurant_id' => $offer->restaurant_id,
                 'points_balance' => (int) $points->points_balance,
                 'total_earned' => (int) $points->total_earned,
                 'total_redeemed' => (int) $points->total_redeemed,
