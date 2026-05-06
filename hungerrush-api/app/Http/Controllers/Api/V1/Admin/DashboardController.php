@@ -17,9 +17,9 @@ use App\Models\Restaurant;
 use App\Models\RestaurantRegistration;
 use App\Models\SupportRequest;
 use App\Models\User;
-use App\Models\UserNotification;
 use App\Models\Video;
 use App\Services\CloudflareStreamService;
+use App\Services\OrderNotificationService;
 use App\Services\OrderStatusTransitionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -330,8 +330,12 @@ class DashboardController extends Controller
         return $this->successResponse(['deleted' => true], message: 'Video deleted.');
     }
 
-    public function updateOrder(Request $request, Order $order, OrderStatusTransitionService $transitionService)
-    {
+    public function updateOrder(
+        Request $request,
+        Order $order,
+        OrderStatusTransitionService $transitionService,
+        OrderNotificationService $orderNotificationService
+    ) {
         $this->assertAdmin($request);
         $validated = $request->validate([
             'status' => ['nullable', 'in:pending,accepted,rejected,preparing,ready_for_pickup,picked_up,on_the_way,delivered,cancelled'],
@@ -389,13 +393,7 @@ class DashboardController extends Controller
                 'changed_at' => now(),
             ]);
 
-            UserNotification::create([
-                'user_id' => $order->customer_id,
-                'type' => 'order_status',
-                'title' => 'Order status updated',
-                'body' => "Order #{$order->id} is now {$nextStatus->value}.",
-                'data' => ['order_id' => $order->id, 'status' => $nextStatus->value],
-            ]);
+            $orderNotificationService->notifyCustomerStatusChange($order, $nextStatus);
         }
 
         return $this->successResponse(

@@ -4,19 +4,20 @@ namespace App\Http\Controllers\Api\V1\Customer;
 
 use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
-use App\Http\Requests\Customer\PlaceOrderRequest;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Customer\PlaceOrderRequest;
 use App\Http\Resources\OrderResource;
 use App\Models\Cart;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderStatusHistory;
 use App\Models\UserNotification;
+use App\Services\OrderNotificationService;
 use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
-    public function place(PlaceOrderRequest $request)
+    public function place(PlaceOrderRequest $request, OrderNotificationService $orderNotificationService)
     {
         $cart = Cart::with('items.menuItem')->where('customer_id', auth()->id())->firstOrFail();
         abort_if($cart->items->isEmpty(), 422, 'Cart is empty.');
@@ -76,6 +77,8 @@ class OrderController extends Controller
             'body' => "Order #{$order->id} was placed successfully.",
             'data' => ['order_id' => $order->id],
         ]);
+
+        $orderNotificationService->notifyNewOrder($order);
 
         return $this->successResponse(
             new OrderResource($order->load(['restaurant.branches', 'branch', 'items.menuItem.category', 'statusHistory'])),

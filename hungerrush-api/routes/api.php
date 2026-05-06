@@ -1,14 +1,15 @@
 <?php
 
-use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ConversationController;
 use App\Http\Controllers\Api\V1\Customer\CartController;
 use App\Http\Controllers\Api\V1\Customer\OrderController as CustomerOrderController;
 use App\Http\Controllers\Api\V1\Customer\ProfileController as CustomerProfileController;
-use App\Http\Controllers\Api\V1\Customer\RestaurantFollowController;
 use App\Http\Controllers\Api\V1\Customer\RestaurantController as CustomerRestaurantController;
+use App\Http\Controllers\Api\V1\Customer\RestaurantFollowController;
 use App\Http\Controllers\Api\V1\Customer\VideoFeedController;
+use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\Internal\VideoModerationCallbackController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\ReportController;
@@ -60,6 +61,9 @@ Route::prefix('v1')->group(function () {
         Route::get('/conversations/{conversation}', [ConversationController::class, 'show']);
         Route::post('/conversations/{conversation}/messages', [ConversationController::class, 'sendMessage']);
         Route::patch('/conversations/{conversation}/read', [ConversationController::class, 'markRead']);
+
+        Route::post('/device-tokens', [DeviceTokenController::class, 'store']);
+        Route::post('/device-tokens/deactivate', [DeviceTokenController::class, 'deactivate']);
 
         Route::get('/notifications', [NotificationController::class, 'index']);
         Route::patch('/notifications/read-all', [NotificationController::class, 'markAllRead']);
