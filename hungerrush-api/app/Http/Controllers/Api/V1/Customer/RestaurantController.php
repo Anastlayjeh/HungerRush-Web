@@ -7,20 +7,36 @@ use App\Http\Resources\MenuCategoryResource;
 use App\Http\Resources\MenuItemResource;
 use App\Http\Resources\RestaurantResource;
 use App\Models\Restaurant;
+use App\Models\Review;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 class RestaurantController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $hasReviewTable = $this->tableIsQueryable('reviews');
         $hasFollowTable = $this->tableIsQueryable('restaurant_follows');
+        $search = trim((string) $request->query('q', ''));
 
         $query = Restaurant::query()
             ->where('status', 'active')
             ->with(['owner:id,name,email,phone', 'branches']);
+
+        if ($search !== '') {
+            $query->where(function (Builder $builder) use ($search) {
+                $builder
+                    ->where('name', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%")
+                    ->orWhereHas('branches', function (Builder $branchBuilder) use ($search) {
+                        $branchBuilder
+                            ->where('name', 'like', "%{$search}%")
+                            ->orWhere('address', 'like', "%{$search}%");
+                    });
+            });
+        }
 
         $this->applyRestaurantAggregatesToQuery($query);
 
@@ -69,6 +85,49 @@ class RestaurantController extends Controller
             'categories' => MenuCategoryResource::collection($categories),
             'menu_items' => MenuItemResource::collection($categories->flatMap->items->values()),
         ]);
+    }
+
+    public function reviews(Restaurant $restaurant, Request $request)
+    {
+        $query = Review::query()
+            ->where('restaurant_id', $restaurant->id)
+            ->with('customer:id,name,avatar')
+            ->latest();
+
+        $rating = (int) $request->query('rating', 0);
+        if ($rating >= 1 && $rating <= 5) {
+            $query->where('rating', $rating);
+        }
+
+        $reviews = $query->paginate(20);
+
+        return $this->successResponse(
+            $reviews->getCollection()->map(function (Review $review) {
+                return [
+                    'id' => $review->id,
+                    'restaurant_id' => $review->restaurant_id,
+                    'customer_id' => $review->customer_id,
+                    'order_id' => $review->order_id,
+                    'rating' => (int) $review->rating,
+                    'comment' => $review->comment,
+                    'reply' => $review->reply,
+                    'replied_at' => optional($review->replied_at)->toISOString(),
+                    'customer' => $review->customer ? [
+                        'id' => $review->customer->id,
+                        'name' => $review->customer->name,
+                        'avatar' => $review->customer->avatar,
+                    ] : null,
+                    'created_at' => optional($review->created_at)->toISOString(),
+                    'updated_at' => optional($review->updated_at)->toISOString(),
+                ];
+            })->values(),
+            [
+                'current_page' => $reviews->currentPage(),
+                'per_page' => $reviews->perPage(),
+                'total' => $reviews->total(),
+                'last_page' => $reviews->lastPage(),
+            ]
+        );
     }
 
     private function applyRestaurantAggregatesToQuery(Builder $query): void

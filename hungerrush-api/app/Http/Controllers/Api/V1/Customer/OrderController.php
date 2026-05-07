@@ -13,13 +13,15 @@ use App\Models\OrderItem;
 use App\Models\OrderStatusHistory;
 use App\Models\UserNotification;
 use App\Services\OrderNotificationService;
+use App\Services\OrderStatusTransitionService;
 use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
     public function place(PlaceOrderRequest $request, OrderNotificationService $orderNotificationService)
     {
-        $cart = Cart::with('items.menuItem')->where('customer_id', auth()->id())->firstOrFail();
+        $cart = $this->resolveCartForPlacement($request->validated());
+        $cart->load('items.menuItem');
         abort_if($cart->items->isEmpty(), 422, 'Cart is empty.');
         abort_if($cart->restaurant_id === null, 422, 'Cart restaurant is missing.');
         abort_if(
@@ -65,7 +67,7 @@ class OrderController extends Controller
             ]);
 
             $cart->items()->delete();
-            $cart->update(['restaurant_id' => null]);
+            $cart->delete();
 
             return $order;
         });
@@ -81,7 +83,7 @@ class OrderController extends Controller
         $orderNotificationService->notifyNewOrder($order);
 
         return $this->successResponse(
-            new OrderResource($order->load(['restaurant.branches', 'branch', 'items.menuItem.category', 'statusHistory'])),
+            new OrderResource($order->load(['restaurant.branches', 'branch', 'items.menuItem.category', 'statusHistory', 'loyaltyTransactions'])),
             message: 'Order placed successfully.',
             status: 201
         );
@@ -90,14 +92,14 @@ class OrderController extends Controller
     public function show(Order $order)
     {
         abort_unless($order->customer_id === auth()->id(), 404);
-        return $this->successResponse(new OrderResource($order->load(['restaurant.branches', 'branch', 'items.menuItem.category', 'statusHistory'])));
+        return $this->successResponse(new OrderResource($order->load(['restaurant.branches', 'branch', 'items.menuItem.category', 'statusHistory', 'loyaltyTransactions'])));
     }
 
     public function history()
     {
         $orders = Order::query()
             ->where('customer_id', auth()->id())
-            ->with(['restaurant.branches', 'branch', 'items.menuItem.category'])
+            ->with(['restaurant.branches', 'branch', 'items.menuItem.category', 'loyaltyTransactions'])
             ->latest()
             ->paginate(20);
 
@@ -106,5 +108,73 @@ class OrderController extends Controller
             'per_page' => $orders->perPage(),
             'total' => $orders->total(),
         ]);
+    }
+
+    public function cancel(
+        Order $order,
+        OrderStatusTransitionService $transitionService,
+        OrderNotificationService $orderNotificationService
+    ) {
+        abort_unless($order->customer_id === auth()->id(), 404);
+
+        if (!in_array($order->status, [OrderStatus::Pending, OrderStatus::Accepted], true)) {
+            return $this->errorResponse(
+                'Cancel order is not available for the current order status.',
+                ['status' => ['Only pending or accepted orders can be canceled.']],
+                'cancel_not_available',
+                422
+            );
+        }
+
+        $targetStatus = OrderStatus::Cancelled;
+        if (!$transitionService->canTransition($order->status, $targetStatus)) {
+            return $this->errorResponse(
+                'Invalid status transition.',
+                ['status' => ['Transition is not allowed from current status.']],
+                'invalid_order_transition',
+                422
+            );
+        }
+
+        $order->update(['status' => $targetStatus->value]);
+        OrderStatusHistory::create([
+            'order_id' => $order->id,
+            'status' => $targetStatus->value,
+            'changed_by' => auth()->id(),
+            'changed_at' => now(),
+        ]);
+
+        $orderNotificationService->notifyCustomerStatusChange($order, $targetStatus);
+
+        return $this->successResponse(
+            new OrderResource($order->refresh()->load(['restaurant.branches', 'branch', 'items.menuItem.category', 'statusHistory', 'loyaltyTransactions'])),
+            message: 'Order canceled successfully.'
+        );
+    }
+
+    private function resolveCartForPlacement(array $validated): Cart
+    {
+        $customerId = (int) auth()->id();
+        $cartId = isset($validated['cart_id']) ? trim((string) $validated['cart_id']) : '';
+        if ($cartId !== '') {
+            return Cart::query()
+                ->where('customer_id', $customerId)
+                ->whereKey($cartId)
+                ->firstOrFail();
+        }
+
+        $restaurantId = isset($validated['restaurant_id']) ? trim((string) $validated['restaurant_id']) : '';
+        if ($restaurantId !== '') {
+            return Cart::query()
+                ->where('customer_id', $customerId)
+                ->where('restaurant_id', $restaurantId)
+                ->firstOrFail();
+        }
+
+        return Cart::query()
+            ->where('customer_id', $customerId)
+            ->whereHas('items')
+            ->latest('updated_at')
+            ->firstOrFail();
     }
 }

@@ -261,6 +261,49 @@ class AuthController extends Controller
         return $this->successResponse(['logged_out' => true], message: 'Logout successful.');
     }
 
+    public function changePassword(Request $request)
+    {
+        $user = $request->user();
+        abort_unless($user !== null, 401, 'Unauthenticated.');
+
+        $validated = $request->validate([
+            'old_password' => ['required', 'string'],
+            'new_password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        if (!Hash::check($validated['old_password'], $user->password)) {
+            return $this->errorResponse(
+                'Current password is incorrect.',
+                ['old_password' => ['Current password is incorrect.']],
+                code: 'invalid_old_password',
+                status: 422
+            );
+        }
+
+        if (Hash::check($validated['new_password'], $user->password)) {
+            return $this->errorResponse(
+                'New password must be different from your current password.',
+                ['new_password' => ['Choose a different new password.']],
+                code: 'password_not_changed',
+                status: 422
+            );
+        }
+
+        $user->forceFill([
+            'password' => $validated['new_password'],
+        ])->save();
+
+        $currentTokenId = $user->currentAccessToken()?->id;
+        if ($currentTokenId !== null) {
+            $user->tokens()->where('id', '!=', $currentTokenId)->delete();
+        }
+
+        return $this->successResponse(
+            ['password_changed' => true],
+            message: 'Password updated successfully.'
+        );
+    }
+
     public function forgotPassword(Request $request)
     {
         $validated = $request->validate([

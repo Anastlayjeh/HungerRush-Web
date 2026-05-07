@@ -18,7 +18,6 @@ import {
   toggleSortConfig,
 } from "../../components/admin/AdminUI.jsx";
 import { api } from "../../lib/api.js";
-import { mockAdminData } from "../../lib/adminData.js";
 
 const REPORT_STATUS_OPTIONS = [
   { value: "all", label: "All Statuses" },
@@ -90,7 +89,6 @@ export default function AdminReports({ onNavigate, token, user, onLogout }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [usingMock, setUsingMock] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const [updatingReportId, setUpdatingReportId] = useState(null);
@@ -106,13 +104,11 @@ export default function AdminReports({ onNavigate, token, user, onLogout }) {
         const response = await api.getAdminReports(token);
         if (!isCancelled) {
           setReports(response.items.length ? response.items : []);
-          setUsingMock(false);
         }
       } catch (requestError) {
         if (!isCancelled) {
-          setReports(mockAdminData.reports);
-          setUsingMock(true);
-          setError(requestError?.message || "Admin reports endpoint is not available yet.");
+          setReports([]);
+          setError(requestError?.message || "Failed to load reports.");
         }
       } finally {
         if (!isCancelled) setLoading(false);
@@ -180,15 +176,11 @@ export default function AdminReports({ onNavigate, token, user, onLogout }) {
     setUpdatingReportId(report.id);
     setError("");
     try {
-      if (usingMock) {
-        replaceReport({ ...report, status, resolution: resolution || report.resolution });
-      } else {
-        const updatedReport = await api.updateAdminReport(token, report.id, {
-          status,
-          resolution: resolution || undefined,
-        });
-        replaceReport(updatedReport);
-      }
+      const updatedReport = await api.updateAdminReport(token, report.id, {
+        status,
+        resolution: resolution || undefined,
+      });
+      replaceReport(updatedReport);
       setSuccess(`Report #${report.id} was marked ${reportStatusLabel(status).toLowerCase()}.`);
     } catch (requestError) {
       setError(requestError?.message || "Failed to update report.");
@@ -207,7 +199,7 @@ export default function AdminReports({ onNavigate, token, user, onLogout }) {
       title="Reports and Moderation"
       headerActions={<SearchField value={search} onChange={setSearch} placeholder="Search reports..." />}
     >
-      {usingMock ? <Alert type="warning">{error} Showing placeholder reports.</Alert> : <Alert>{error}</Alert>}
+      <Alert>{error}</Alert>
       <Alert type="success">{success}</Alert>
 
       <div className="mb-5 flex flex-wrap items-center gap-3">

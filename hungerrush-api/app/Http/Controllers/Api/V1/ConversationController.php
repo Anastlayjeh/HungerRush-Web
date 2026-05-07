@@ -37,6 +37,22 @@ class ConversationController extends Controller
             abort(403, 'Not authorized to view conversations.');
         }
 
+        $search = trim((string) $request->query('q', ''));
+        if ($search !== '') {
+            $query->where(function ($builder) use ($search) {
+                $builder
+                    ->where('subject', 'like', "%{$search}%")
+                    ->orWhere('id', 'like', "%{$search}%")
+                    ->orWhereHas('restaurant', fn ($restaurantBuilder) => $restaurantBuilder->where('name', 'like', "%{$search}%"))
+                    ->orWhereHas('customer', function ($customerBuilder) use ($search) {
+                        $customerBuilder
+                            ->where('name', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%")
+                            ->orWhere('phone', 'like', "%{$search}%");
+                    });
+            });
+        }
+
         $conversations = $query->paginate(30);
 
         return $this->successResponse(ConversationResource::collection($conversations->items()), [

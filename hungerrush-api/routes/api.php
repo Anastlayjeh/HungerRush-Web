@@ -56,6 +56,7 @@ Route::prefix('v1')->group(function () {
         Route::middleware('auth:sanctum')->group(function () {
             Route::post('/logout', [AuthController::class, 'logout']);
             Route::get('/me', [AuthController::class, 'me']);
+            Route::patch('/change-password', [AuthController::class, 'changePassword']);
         });
     });
 
@@ -76,7 +77,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/support-requests', [SupportRequestController::class, 'store']);
         Route::post('/reports', [ReportController::class, 'store']);
 
-        Route::prefix('admin')->group(function () {
+        Route::prefix('admin')->middleware('role:admin')->group(function () {
             Route::get('/dashboard', [AdminDashboardController::class, 'dashboard']);
             Route::get('/users', [AdminDashboardController::class, 'users']);
             Route::get('/restaurants', [AdminDashboardController::class, 'restaurants']);
@@ -92,9 +93,10 @@ Route::prefix('v1')->group(function () {
         });
     });
 
-    Route::prefix('restaurant')->middleware('auth:sanctum')->group(function () {
+    Route::prefix('restaurant')->middleware(['auth:sanctum', 'role:restaurant_owner,restaurant_staff'])->group(function () {
         Route::get('/profile', [ProfileController::class, 'show']);
         Route::patch('/profile', [ProfileController::class, 'update']);
+        Route::get('/followers', [ProfileController::class, 'followers']);
         Route::get('/settings', [SettingsController::class, 'show']);
         Route::patch('/settings', [SettingsController::class, 'update']);
         Route::post('/profile-photo/upload', [RestaurantProfilePhotoUploadController::class, 'store']);
@@ -138,7 +140,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/analytics', [AnalyticsController::class, 'overview']);
     });
 
-    Route::prefix('customer')->middleware('auth:sanctum')->group(function () {
+    Route::prefix('customer')->middleware(['auth:sanctum', 'role:customer'])->group(function () {
         Route::get('/profile', [CustomerProfileController::class, 'show']);
         Route::patch('/profile', [CustomerProfileController::class, 'update']);
 
@@ -157,12 +159,14 @@ Route::prefix('v1')->group(function () {
         Route::get('/restaurants', [CustomerRestaurantController::class, 'index']);
         Route::get('/restaurants/{restaurant}', [CustomerRestaurantController::class, 'show']);
         Route::get('/restaurants/{restaurant}/menu', [CustomerRestaurantController::class, 'menu']);
+        Route::get('/restaurants/{restaurant}/reviews', [CustomerRestaurantController::class, 'reviews']);
         Route::get('/restaurants/{restaurant}/loyalty-offers', [CustomerLoyaltyController::class, 'offers']);
 
         Route::get('/loyalty/points', [CustomerLoyaltyController::class, 'index']);
         Route::get('/loyalty/points/{restaurant}', [CustomerLoyaltyController::class, 'show']);
         Route::post('/loyalty/offers/{loyaltyOffer}/redeem', [CustomerLoyaltyController::class, 'redeem']);
 
+        Route::get('/carts', [CartController::class, 'index']);
         Route::get('/cart', [CartController::class, 'show']);
         Route::post('/cart/items', [CartController::class, 'addItem']);
         Route::patch('/cart/items/{cartItem}', [CartController::class, 'updateItem']);
@@ -170,6 +174,7 @@ Route::prefix('v1')->group(function () {
 
         Route::post('/orders', [CustomerOrderController::class, 'place']);
         Route::get('/orders/history', [CustomerOrderController::class, 'history']);
+        Route::patch('/orders/{order}/cancel', [CustomerOrderController::class, 'cancel']);
         Route::get('/orders/{order}', [CustomerOrderController::class, 'show']);
     });
 });

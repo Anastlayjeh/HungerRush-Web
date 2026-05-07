@@ -14,6 +14,8 @@ class PlaceOrderRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'cart_id' => ['nullable', 'exists:carts,id'],
+            'restaurant_id' => ['nullable', 'exists:restaurants,id'],
             'branch_id' => ['nullable', 'exists:restaurant_branches,id'],
         ];
     }

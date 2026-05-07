@@ -11,10 +11,15 @@ class NotificationController extends Controller
 {
     public function index(Request $request)
     {
+        $validated = $request->validate([
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
+        $perPage = (int) ($validated['per_page'] ?? 50);
+
         $notifications = UserNotification::query()
             ->where('user_id', $request->user()->id)
             ->latest()
-            ->paginate(30);
+            ->paginate($perPage);
 
         return $this->successResponse(UserNotificationResource::collection($notifications->items()), [
             'current_page' => $notifications->currentPage(),

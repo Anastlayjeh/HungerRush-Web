@@ -7,16 +7,42 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class OrderResource extends JsonResource
 {
+    private const LBP_PER_USD = 90000;
+    private const POINTS_PER_USD = 20;
+
     public function toArray(Request $request): array
     {
+        $subtotal = (float) $this->subtotal;
+        $deliveryFee = (float) $this->fees;
+        $total = (float) $this->total;
+        $subtotalLbp = (int) round($subtotal * self::LBP_PER_USD);
+        $deliveryFeeLbp = (int) round($deliveryFee * self::LBP_PER_USD);
+        $totalLbp = (int) round($total * self::LBP_PER_USD);
+        $pointsEstimate = intdiv(max($totalLbp, 0), self::LBP_PER_USD) * self::POINTS_PER_USD;
+
+        $earnedPoints = 0;
+        if ($this->relationLoaded('loyaltyTransactions')) {
+            $earnedPoints = (int) $this->loyaltyTransactions
+                ->where('type', 'earned')
+                ->sum('points');
+        }
+
         return [
             'id' => $this->id,
             'customer_id' => $this->customer_id,
             'restaurant_id' => $this->restaurant_id,
             'branch_id' => $this->branch_id,
-            'subtotal' => (float) $this->subtotal,
-            'fees' => (float) $this->fees,
-            'total' => (float) $this->total,
+            'subtotal' => $subtotal,
+            'fees' => $deliveryFee,
+            'delivery_fee' => $deliveryFee,
+            'discount' => 0.0,
+            'loyalty_points_used' => 0,
+            'total' => $total,
+            'subtotal_lbp' => $subtotalLbp,
+            'delivery_fee_lbp' => $deliveryFeeLbp,
+            'total_lbp' => $totalLbp,
+            'loyalty_points_earned' => $earnedPoints,
+            'loyalty_points_estimate' => $pointsEstimate,
             'status' => $this->status?->value ?? $this->status,
             'payment_status' => $this->payment_status?->value ?? $this->payment_status,
             'is_quick_order' => (bool) $this->is_quick_order,

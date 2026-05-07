@@ -52,6 +52,8 @@ class RestaurantResource extends JsonResource
             'orders_count' => (int) ($this->orders_count ?? 0),
             'reviews_count' => (int) ($this->reviews_count ?? 0),
             'followers_count' => (int) ($this->follows_count ?? 0),
+            'videos_count' => (int) ($this->videos_count ?? 0),
+            'loyalty_offers_count' => (int) ($this->loyalty_offers_count ?? 0),
             'average_rating' => $this->reviews_avg_rating !== null
                 ? round((float) $this->reviews_avg_rating, 1)
                 : null,
