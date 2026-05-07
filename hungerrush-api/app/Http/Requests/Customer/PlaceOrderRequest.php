@@ -26,6 +26,7 @@ class PlaceOrderRequest extends FormRequest
             'cart_id' => ['nullable', 'exists:carts,id'],
             'restaurant_id' => ['nullable', 'exists:restaurants,id'],
             'branch_id' => ['nullable', 'exists:restaurant_branches,id'],
+            'loyalty_offer_id' => ['nullable', 'exists:loyalty_offers,id'],
             'delivery_address' => ['required', 'array'],
             'delivery_address.city' => ['required', 'string', 'max:120'],
             'delivery_address.street' => ['required', 'string', 'max:255'],

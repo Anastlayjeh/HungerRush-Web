@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\LoyaltyOffer;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -14,6 +15,8 @@ class OrderResource extends JsonResource
     {
         $subtotal = (float) $this->subtotal;
         $deliveryFee = (float) $this->fees;
+        $discount = (float) ($this->loyalty_discount ?? 0);
+        $pointsUsed = (int) ($this->loyalty_points_used ?? 0);
         $total = (float) $this->total;
         $subtotalLbp = (int) round($subtotal * self::LBP_PER_USD);
         $deliveryFeeLbp = (int) round($deliveryFee * self::LBP_PER_USD);
@@ -26,17 +29,20 @@ class OrderResource extends JsonResource
                 ->where('type', 'earned')
                 ->sum('points');
         }
+        $offer = $this->relationLoaded('loyaltyOffer') ? $this->loyaltyOffer : null;
 
         return [
             'id' => $this->id,
             'customer_id' => $this->customer_id,
             'restaurant_id' => $this->restaurant_id,
             'branch_id' => $this->branch_id,
+            'loyalty_offer_id' => $this->loyalty_offer_id,
             'subtotal' => $subtotal,
             'fees' => $deliveryFee,
             'delivery_fee' => $deliveryFee,
-            'discount' => 0.0,
-            'loyalty_points_used' => 0,
+            'discount' => $discount,
+            'loyalty_points_used' => $pointsUsed,
+            'loyalty_offer' => $this->transformOffer($offer),
             'total' => $total,
             'subtotal_lbp' => $subtotalLbp,
             'delivery_fee_lbp' => $deliveryFeeLbp,
@@ -93,6 +99,51 @@ class OrderResource extends JsonResource
                     'changed_at' => optional($history->changed_at)->toISOString(),
                 ])->values();
             }),
+        ];
+    }
+
+    private function transformOffer(?LoyaltyOffer $offer): ?array
+    {
+        if ($offer === null) {
+            return null;
+        }
+
+        $menuItem = $offer->relationLoaded('menuItem') ? $offer->menuItem : null;
+        $rewardType = (string) ($offer->reward_type ?? 'custom');
+        $discountedPrice = null;
+        if ($menuItem) {
+            $menuPrice = (float) ($menuItem->price ?? 0);
+            if ($rewardType === 'free_item') {
+                $discountedPrice = 0.0;
+            } elseif ($offer->discount_percentage !== null) {
+                $discountedPrice = round(max($menuPrice - ($menuPrice * ((float) $offer->discount_percentage / 100)), 0), 2);
+            } elseif ($offer->discount_amount !== null) {
+                $discountedPrice = round(max($menuPrice - (float) $offer->discount_amount, 0), 2);
+            }
+        }
+
+        return [
+            'id' => $offer->id,
+            'restaurant_id' => $offer->restaurant_id,
+            'title' => $offer->title,
+            'description' => $offer->description,
+            'conditions' => $offer->conditions,
+            'expires_at' => optional($offer->expires_at)->toISOString(),
+            'required_points' => (int) ($offer->required_points ?? 0),
+            'reward_type' => $rewardType,
+            'menu_item_id' => $offer->menu_item_id,
+            'menu_item' => $menuItem ? [
+                'id' => $menuItem->id,
+                'name' => $menuItem->name,
+                'price' => (float) $menuItem->price,
+                'image_url' => $menuItem->image_url,
+                'is_available' => (bool) $menuItem->is_available,
+            ] : null,
+            'discount_percentage' => $offer->discount_percentage !== null ? (float) $offer->discount_percentage : null,
+            'discount_amount' => $offer->discount_amount !== null ? (float) $offer->discount_amount : null,
+            'discounted_price' => $discountedPrice,
+            'free_item_quantity' => (int) ($offer->free_item_quantity ?? 1),
+            'is_active' => (bool) $offer->is_active,
         ];
     }
 }

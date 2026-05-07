@@ -20,7 +20,7 @@ class CartController extends Controller
         $carts = Cart::query()
             ->where('customer_id', $customerId)
             ->whereHas('items')
-            ->with(['restaurant.branches', 'items.menuItem.category'])
+            ->with(['restaurant.branches', 'items.menuItem.category', 'loyaltyOffer.menuItem'])
             ->withCount('items')
             ->orderByDesc('updated_at')
             ->get();
@@ -37,7 +37,7 @@ class CartController extends Controller
             restaurantId: $request->query('restaurant_id'),
             cartId: $request->query('cart_id'),
         );
-        $cart->load(['restaurant.branches', 'items.menuItem.category']);
+        $cart->load(['restaurant.branches', 'items.menuItem.category', 'loyaltyOffer.menuItem']);
 
         return $this->successResponse(new CartResource($cart));
     }

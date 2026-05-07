@@ -33,6 +33,7 @@ class OrderController extends Controller
                 'restaurant.branches',
                 'branch:id,name,address',
                 'items.menuItem.category',
+                'loyaltyOffer.menuItem',
             ])
             ->latest('id')
             ->paginate(15);
@@ -53,6 +54,7 @@ class OrderController extends Controller
             'branch:id,name,address',
             'items.menuItem.category',
             'statusHistory',
+            'loyaltyOffer.menuItem',
         ]);
 
         return $this->successResponse(new OrderResource($order));
@@ -85,7 +87,7 @@ class OrderController extends Controller
 
         $orderNotificationService->notifyCustomerStatusChange($order, $targetStatus);
 
-        return $this->successResponse(new OrderResource($order->refresh()->load(['customer:id,name,email,phone', 'restaurant.branches', 'branch', 'items.menuItem.category', 'statusHistory'])), message: 'Order status updated.');
+        return $this->successResponse(new OrderResource($order->refresh()->load(['customer:id,name,email,phone', 'restaurant.branches', 'branch', 'items.menuItem.category', 'statusHistory', 'loyaltyOffer.menuItem'])), message: 'Order status updated.');
     }
 
     public function storeQuickOrder(StoreQuickOrderRequest $request)
@@ -183,7 +185,7 @@ class OrderController extends Controller
         });
 
         return $this->successResponse(
-            new OrderResource($order->load(['customer:id,name,email,phone', 'restaurant.branches', 'branch', 'items.menuItem.category', 'statusHistory'])),
+            new OrderResource($order->load(['customer:id,name,email,phone', 'restaurant.branches', 'branch', 'items.menuItem.category', 'statusHistory', 'loyaltyOffer.menuItem'])),
             message: 'Quick order created successfully.',
             status: 201
         );

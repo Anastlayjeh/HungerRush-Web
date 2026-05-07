@@ -11,7 +11,7 @@ class Cart extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['customer_id', 'restaurant_id'];
+    protected $fillable = ['customer_id', 'restaurant_id', 'loyalty_offer_id'];
 
     public function customer(): BelongsTo
     {
@@ -26,5 +26,10 @@ class Cart extends Model
     public function items(): HasMany
     {
         return $this->hasMany(CartItem::class);
+    }
+
+    public function loyaltyOffer(): BelongsTo
+    {
+        return $this->belongsTo(LoyaltyOffer::class, 'loyalty_offer_id');
     }
 }

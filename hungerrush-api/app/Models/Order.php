@@ -17,8 +17,11 @@ class Order extends Model
         'customer_id',
         'restaurant_id',
         'branch_id',
+        'loyalty_offer_id',
         'subtotal',
         'fees',
+        'loyalty_points_used',
+        'loyalty_discount',
         'total',
         'status',
         'payment_status',
@@ -40,11 +43,13 @@ class Order extends Model
         return [
             'subtotal' => 'decimal:2',
             'fees' => 'decimal:2',
+            'loyalty_discount' => 'decimal:2',
             'total' => 'decimal:2',
             'status' => OrderStatus::class,
             'payment_status' => PaymentStatus::class,
             'is_quick_order' => 'boolean',
             'delivery_address' => 'array',
+            'loyalty_points_used' => 'integer',
             'use_loyalty' => 'boolean',
             'save_change_in_wallet' => 'boolean',
         ];
@@ -83,5 +88,10 @@ class Order extends Model
     public function loyaltyTransactions(): HasMany
     {
         return $this->hasMany(LoyaltyTransaction::class);
+    }
+
+    public function loyaltyOffer(): BelongsTo
+    {
+        return $this->belongsTo(LoyaltyOffer::class, 'loyalty_offer_id');
     }
 }
