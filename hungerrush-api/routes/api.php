@@ -156,7 +156,9 @@ Route::prefix('v1')->group(function () {
         Route::post('/restaurants/{restaurant}/follow', [RestaurantFollowController::class, 'store']);
         Route::delete('/restaurants/{restaurant}/follow', [RestaurantFollowController::class, 'destroy']);
 
+        Route::get('/quick-cravings', [CustomerRestaurantController::class, 'quickCravings']);
         Route::get('/restaurants', [CustomerRestaurantController::class, 'index']);
+        Route::get('/restaurants/cuisines', [CustomerRestaurantController::class, 'cuisines']);
         Route::get('/restaurants/{restaurant}', [CustomerRestaurantController::class, 'show']);
         Route::get('/restaurants/{restaurant}/menu', [CustomerRestaurantController::class, 'menu']);
         Route::get('/restaurants/{restaurant}/videos', [CustomerRestaurantController::class, 'videos']);

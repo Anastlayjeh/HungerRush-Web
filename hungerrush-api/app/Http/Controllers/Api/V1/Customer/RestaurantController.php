@@ -9,6 +9,7 @@ use App\Http\Requests\Customer\StoreRestaurantReviewRequest;
 use App\Http\Resources\MenuCategoryResource;
 use App\Http\Resources\MenuItemResource;
 use App\Http\Resources\RestaurantResource;
+use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\Restaurant;
 use App\Models\Review;
@@ -25,6 +26,9 @@ class RestaurantController extends Controller
         $hasReviewTable = $this->tableIsQueryable('reviews');
         $hasFollowTable = $this->tableIsQueryable('restaurant_follows');
         $search = trim((string) $request->query('q', ''));
+        $cuisine = trim((string) ($request->query('cuisine') ?? $request->query('category') ?? ''));
+        $perPage = (int) $request->query('per_page', 20);
+        $perPage = max(1, min($perPage, 100));
 
         $query = Restaurant::query()
             ->where('status', 'active')
@@ -43,6 +47,10 @@ class RestaurantController extends Controller
             });
         }
 
+        if ($cuisine !== '') {
+            $this->applyCuisineFilter($query, $cuisine);
+        }
+
         $this->applyRestaurantAggregatesToQuery($query);
 
         if ($hasFollowTable) {
@@ -54,13 +62,54 @@ class RestaurantController extends Controller
             $query->orderByDesc('reviews_count');
         }
 
-        $restaurants = $query->latest()->paginate(20);
+        $restaurants = $query->latest()->paginate($perPage);
 
         return $this->successResponse(RestaurantResource::collection($restaurants->items()), [
             'current_page' => $restaurants->currentPage(),
             'per_page' => $restaurants->perPage(),
             'total' => $restaurants->total(),
         ]);
+    }
+
+    public function cuisines()
+    {
+        $counts = [];
+
+        Restaurant::query()
+            ->where('status', 'active')
+            ->get(['settings'])
+            ->each(function (Restaurant $restaurant) use (&$counts) {
+                $label = $this->restaurantCuisineLabel($restaurant);
+                if ($label === null) {
+                    return;
+                }
+                $key = strtolower($label);
+                if (!isset($counts[$key])) {
+                    $counts[$key] = [
+                        'title' => $label,
+                        'count' => 0,
+                    ];
+                }
+                $counts[$key]['count']++;
+            });
+
+        $cuisines = collect($counts)
+            ->sort(function (array $a, array $b) {
+                $countCompare = $b['count'] <=> $a['count'];
+
+                return $countCompare !== 0
+                    ? $countCompare
+                    : strcasecmp($a['title'], $b['title']);
+            })
+            ->values()
+            ->map(fn (array $item) => [
+                'title' => $item['title'],
+                'label' => $item['title'],
+                'restaurants_count' => (int) $item['count'],
+            ])
+            ->all();
+
+        return $this->successResponse($cuisines);
     }
 
     public function show(Restaurant $restaurant)
@@ -89,6 +138,57 @@ class RestaurantController extends Controller
             'restaurant' => new RestaurantResource($restaurant),
             'categories' => MenuCategoryResource::collection($categories),
             'menu_items' => MenuItemResource::collection($categories->flatMap->items->values()),
+        ]);
+    }
+
+    public function quickCravings(Request $request)
+    {
+        if (!$this->tableIsQueryable('menu_items') || !$this->tableIsQueryable('menu_categories')) {
+            return $this->successResponse([], [
+                'per_page' => 0,
+                'total' => 0,
+            ]);
+        }
+
+        $perPage = (int) $request->query('per_page', 6);
+        $perPage = max(1, min($perPage, 20));
+
+        $query = MenuItem::query()
+            ->where('is_available', true)
+            ->whereHas('category.restaurant', fn (Builder $builder) => $builder->where('status', 'active'))
+            ->with([
+                'category.restaurant.owner:id,name,email,phone',
+                'category.restaurant.branches',
+            ]);
+
+        if ($this->tableIsQueryable('order_items')) {
+            $query->withCount('orderItems')->orderByDesc('order_items_count');
+        }
+
+        $items = $query
+            ->latest()
+            ->limit($perPage)
+            ->get();
+
+        $data = $items
+            ->map(function (MenuItem $item) {
+                $restaurant = $item->category?->restaurant;
+                if ($restaurant instanceof Restaurant) {
+                    $this->loadRestaurantAggregates($restaurant);
+                }
+
+                return [
+                    'menu_item' => new MenuItemResource($item),
+                    'restaurant' => $restaurant instanceof Restaurant
+                        ? new RestaurantResource($restaurant)
+                        : null,
+                ];
+            })
+            ->values();
+
+        return $this->successResponse($data, [
+            'per_page' => $perPage,
+            'total' => $data->count(),
         ]);
     }
 
@@ -322,6 +422,37 @@ class RestaurantController extends Controller
         if ($this->tableIsQueryable('restaurant_follows')) {
             $query->withCount('follows');
         }
+    }
+
+    private function applyCuisineFilter(Builder $query, string $cuisine): void
+    {
+        $cleaned = trim($cuisine);
+        if ($cleaned === '') {
+            return;
+        }
+
+        $query->where(function (Builder $builder) use ($cleaned) {
+            foreach (['cuisine_type', 'cuisine', 'category', 'food_type'] as $key) {
+                $builder->orWhere("settings->{$key}", $cleaned);
+            }
+        });
+    }
+
+    private function restaurantCuisineLabel(Restaurant $restaurant): ?string
+    {
+        $settings = is_array($restaurant->settings) ? $restaurant->settings : [];
+        foreach (['cuisine_type', 'cuisine', 'category', 'food_type'] as $key) {
+            $value = $settings[$key] ?? null;
+            if (!is_string($value)) {
+                continue;
+            }
+            $cleaned = trim($value);
+            if ($cleaned !== '') {
+                return $cleaned;
+            }
+        }
+
+        return null;
     }
 
     private function loadRestaurantAggregates(Restaurant $restaurant): void

@@ -31,6 +31,69 @@ class CustomerApiTest extends TestCase
             ->assertJsonPath('data.restaurant.id', $restaurant->id);
     }
 
+    public function test_customer_can_filter_restaurants_by_cuisine_and_read_cuisine_counts(): void
+    {
+        $customer = User::factory()->create(['role' => 'customer']);
+        $italian = Restaurant::factory()->create([
+            'name' => 'Italian House',
+            'settings' => ['cuisine_type' => 'Italian'],
+        ]);
+        Restaurant::factory()->create([
+            'name' => 'Sushi House',
+            'settings' => ['cuisine_type' => 'Sushi'],
+        ]);
+
+        $this->actingAs($customer, 'sanctum')
+            ->getJson('/api/v1/customer/restaurants/cuisines')
+            ->assertOk()
+            ->assertJsonFragment([
+                'title' => 'Italian',
+                'restaurants_count' => 1,
+            ])
+            ->assertJsonFragment([
+                'title' => 'Sushi',
+                'restaurants_count' => 1,
+            ]);
+
+        $this->actingAs($customer, 'sanctum')
+            ->getJson('/api/v1/customer/restaurants?cuisine=Italian')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $italian->id)
+            ->assertJsonPath('data.0.cuisine_type', 'Italian');
+    }
+
+    public function test_customer_quick_cravings_come_from_available_menu_items(): void
+    {
+        $customer = User::factory()->create(['role' => 'customer']);
+        $restaurant = Restaurant::factory()->create([
+            'name' => 'Live Burger House',
+            'settings' => ['cuisine_type' => 'Burgers'],
+        ]);
+        $category = MenuCategory::factory()->create([
+            'restaurant_id' => $restaurant->id,
+            'name' => 'Burgers',
+        ]);
+        $item = MenuItem::factory()->create([
+            'category_id' => $category->id,
+            'name' => 'Smash Burger',
+            'is_available' => true,
+        ]);
+        MenuItem::factory()->create([
+            'category_id' => $category->id,
+            'name' => 'Unavailable Burger',
+            'is_available' => false,
+        ]);
+
+        $this->actingAs($customer, 'sanctum')
+            ->getJson('/api/v1/customer/quick-cravings')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.menu_item.id', $item->id)
+            ->assertJsonPath('data.0.menu_item.title', 'Smash Burger')
+            ->assertJsonPath('data.0.restaurant.id', $restaurant->id);
+    }
+
     public function test_customer_can_add_items_to_cart_and_place_order(): void
     {
         $customer = User::factory()->create(['role' => 'customer']);
