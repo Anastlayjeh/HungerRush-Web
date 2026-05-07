@@ -5,10 +5,13 @@ namespace App\Http\Controllers\Api\V1\Admin;
 use App\Enums\OrderStatus;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\MenuCategoryResource;
+use App\Http\Resources\MenuItemResource;
 use App\Http\Resources\OrderResource;
 use App\Http\Resources\ReportResource;
 use App\Http\Resources\RestaurantResource;
 use App\Models\Conversation;
+use App\Models\MenuCategory;
 use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\OrderStatusHistory;
@@ -32,25 +35,68 @@ class DashboardController extends Controller
     {
         $this->assertAdmin($request);
 
+        $hasRestaurants = $this->tableIsQueryable('restaurants');
+        $hasMenuItems = $this->tableIsQueryable('menu_items');
+        $hasOrders = $this->tableIsQueryable('orders');
+        $hasReports = $this->tableIsQueryable('reports');
+        $hasSupportRequests = $this->tableIsQueryable('support_requests');
+        $hasRestaurantRegistrations = $this->tableIsQueryable('restaurant_registrations');
+        $hasConversations = $this->tableIsQueryable('conversations');
+
+        $openReports = $hasReports
+            ? Report::query()->whereIn('status', ['open', 'reviewing'])->count()
+            : 0;
+        $openSupportRequests = $hasSupportRequests
+            ? SupportRequest::query()->whereIn('status', ['open', 'in_progress'])->count()
+            : 0;
+        $pendingApprovals = $hasRestaurantRegistrations
+            ? RestaurantRegistration::query()->where('status', 'pending')->count()
+            : 0;
+
+        $recentOrders = $hasOrders
+            ? Order::query()
+                ->with(['customer:id,name,email,phone', 'restaurant.branches', 'items.menuItem.category'])
+                ->latest()
+                ->limit(5)
+                ->get()
+            : collect();
+        $recentReports = $hasReports
+            ? Report::query()
+                ->with(['reporter:id,name,email', 'restaurant.branches'])
+                ->latest()
+                ->limit(5)
+                ->get()
+            : collect();
+
         return $this->successResponse([
             'stats' => [
                 'users' => User::query()->count(),
                 'customers' => User::query()->where('role', UserRole::Customer->value)->count(),
                 'restaurant_owners' => User::query()->where('role', UserRole::RestaurantOwner->value)->count(),
-                'restaurants' => User::query()->where('role', UserRole::RestaurantOwner->value)->count(),
-                'active_restaurants' => Restaurant::query()->where('status', 'active')->count(),
-                'orders' => Order::query()->count(),
-                'open_reports' => Report::query()->whereIn('status', ['open', 'reviewing'])->count(),
-                'open_support_requests' => SupportRequest::query()->whereIn('status', ['open', 'in_progress'])->count(),
-                'pending_approvals' => RestaurantRegistration::query()->where('status', 'pending')->count(),
-                'conversations' => Conversation::query()->count(),
+                'restaurants' => $hasRestaurants ? Restaurant::query()->count() : 0,
+                'active_restaurants' => $hasRestaurants ? Restaurant::query()->where('status', 'active')->count() : 0,
+                'menu_items' => $hasMenuItems ? MenuItem::query()->count() : 0,
+                'orders' => $hasOrders ? Order::query()->count() : 0,
+                'pending_orders' => $hasOrders
+                    ? Order::query()->whereIn('status', [
+                        OrderStatus::Pending->value,
+                        OrderStatus::Accepted->value,
+                        OrderStatus::Preparing->value,
+                        OrderStatus::ReadyForPickup->value,
+                        OrderStatus::OnTheWay->value,
+                    ])->count()
+                    : 0,
+                'total_revenue' => $hasOrders
+                    ? round((float) Order::query()->where('status', OrderStatus::Delivered->value)->sum('total'), 2)
+                    : 0,
+                'reported_content' => $openReports,
+                'open_reports' => $openReports,
+                'open_support_requests' => $openSupportRequests,
+                'pending_approvals' => $pendingApprovals,
+                'conversations' => $hasConversations ? Conversation::query()->count() : 0,
             ],
-            'recent_orders' => OrderResource::collection(
-                Order::query()->with(['customer:id,name,email,phone', 'restaurant.branches', 'items.menuItem.category'])->latest()->limit(5)->get()
-            ),
-            'recent_reports' => ReportResource::collection(
-                Report::query()->with(['reporter:id,name,email', 'restaurant.branches'])->latest()->limit(5)->get()
-            ),
+            'recent_orders' => OrderResource::collection($recentOrders),
+            'recent_reports' => ReportResource::collection($recentReports),
         ]);
     }
 
@@ -88,6 +134,138 @@ class DashboardController extends Controller
             'per_page' => $restaurants->perPage(),
             'total' => $restaurants->total(),
         ]);
+    }
+
+    public function restaurantMenu(Request $request, Restaurant $restaurant)
+    {
+        $this->assertAdmin($request);
+
+        $restaurant->load([
+            'owner:id,name,email,phone,role,status,last_login_at,email_verified_at,created_at,updated_at',
+            'branches',
+        ]);
+
+        if (!$this->tableIsQueryable('menu_categories') || !$this->tableIsQueryable('menu_items')) {
+            return $this->successResponse([
+                'restaurant' => new RestaurantResource($restaurant),
+                'categories' => [],
+                'menu_items' => [],
+            ]);
+        }
+
+        $canCountOrderItems = $this->tableIsQueryable('order_items');
+        $categories = $restaurant->categories()
+            ->with([
+                'items' => function ($query) use ($canCountOrderItems) {
+                    $query->with('category')->orderBy('name');
+
+                    if ($canCountOrderItems) {
+                        $query->withCount('orderItems');
+                    }
+                },
+            ])
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+
+        return $this->successResponse([
+            'restaurant' => new RestaurantResource($restaurant),
+            'categories' => MenuCategoryResource::collection($categories),
+            'menu_items' => MenuItemResource::collection($categories->flatMap->items->values()),
+        ]);
+    }
+
+    public function updateMenuItem(Request $request, MenuItem $menuItem)
+    {
+        $this->assertAdmin($request);
+
+        $validated = $request->validate([
+            'category_id' => ['sometimes', 'nullable', 'integer', 'exists:menu_categories,id'],
+            'category' => ['sometimes', 'nullable', 'string', 'max:180'],
+            'name' => ['sometimes', 'string', 'max:180'],
+            'description' => ['sometimes', 'nullable', 'string'],
+            'ingredients' => ['sometimes', 'nullable', 'string'],
+            'image_urls' => ['sometimes', 'nullable', 'array', 'max:8'],
+            'image_urls.*' => ['url', 'max:2048'],
+            'price' => ['sometimes', 'numeric', 'min:0'],
+            'is_available' => ['sometimes', 'boolean'],
+            'prep_time' => ['sometimes', 'integer', 'min:1'],
+        ]);
+
+        if (empty($validated)) {
+            return $this->errorResponse(
+                'At least one field is required.',
+                ['name' => ['Provide at least one updatable field.']],
+                code: 'missing_update_fields'
+            );
+        }
+
+        $menuItem->loadMissing('category.restaurant');
+        $restaurant = $menuItem->category?->restaurant;
+
+        if (!$restaurant) {
+            return $this->errorResponse(
+                'Menu item is missing a restaurant category.',
+                ['category_id' => ['Menu item must belong to a restaurant category.']],
+                code: 'invalid_menu_item',
+                status: 422
+            );
+        }
+
+        $payload = collect($validated)
+            ->except(['category', 'category_id'])
+            ->all();
+
+        if (array_key_exists('category_id', $validated) && $validated['category_id'] !== null) {
+            $category = MenuCategory::query()->findOrFail((int) $validated['category_id']);
+            if ((int) $category->restaurant_id !== (int) $restaurant->id) {
+                return $this->errorResponse(
+                    'Selected category does not belong to this restaurant.',
+                    ['category_id' => ['Selected category must belong to the same restaurant as this item.']],
+                    code: 'invalid_category',
+                    status: 422
+                );
+            }
+
+            $payload['category_id'] = $category->id;
+        } elseif (array_key_exists('category', $validated)) {
+            $categoryName = trim((string) ($validated['category'] ?? ''));
+            if ($categoryName !== '') {
+                $category = MenuCategory::query()->firstOrCreate(
+                    [
+                        'restaurant_id' => $restaurant->id,
+                        'name' => $categoryName,
+                    ],
+                    [
+                        'sort_order' => ((int) MenuCategory::query()
+                            ->where('restaurant_id', $restaurant->id)
+                            ->max('sort_order')) + 1,
+                    ]
+                );
+
+                $payload['category_id'] = $category->id;
+            }
+        }
+
+        if (array_key_exists('price', $payload)) {
+            $payload['price'] = MenuItem::applyCommissionToBasePrice($payload['price']);
+        }
+
+        $menuItem->update($payload);
+
+        return $this->successResponse(
+            new MenuItemResource($menuItem->refresh()->load('category')),
+            message: 'Menu item updated.'
+        );
+    }
+
+    public function deleteMenuItem(Request $request, MenuItem $menuItem)
+    {
+        $this->assertAdmin($request);
+
+        $menuItem->delete();
+
+        return $this->successResponse(['deleted' => true], message: 'Menu item deleted.');
     }
 
     public function orders(Request $request)
@@ -158,6 +336,15 @@ class DashboardController extends Controller
     public function reports(Request $request)
     {
         $this->assertAdmin($request);
+
+        if (!$this->tableIsQueryable('reports')) {
+            return $this->successResponse([], [
+                'current_page' => 1,
+                'per_page' => 30,
+                'total' => 0,
+            ]);
+        }
+
         $reports = Report::query()
             ->with(['reporter:id,name,email', 'restaurant.branches'])
             ->latest()

@@ -583,6 +583,34 @@ export const api = {
     return unwrapList(payload);
   },
 
+  async getAdminRestaurantMenu(token, restaurantId) {
+    return unwrapData(
+      await request(`/v1/admin/restaurants/${restaurantId}/menu`, {
+        method: "GET",
+        token,
+      })
+    );
+  },
+
+  async updateAdminMenuItem(token, menuItemId, body) {
+    return unwrapData(
+      await request(`/v1/admin/menu-items/${menuItemId}`, {
+        method: "PATCH",
+        token,
+        body,
+      })
+    );
+  },
+
+  async deleteAdminMenuItem(token, menuItemId) {
+    return unwrapData(
+      await request(`/v1/admin/menu-items/${menuItemId}`, {
+        method: "DELETE",
+        token,
+      })
+    );
+  },
+
   async getAdminRestaurantRegistrations(token, params = {}) {
     const payload = await request(
       withQuery("/v1/admin/restaurant-registrations", {

@@ -81,6 +81,9 @@ Route::prefix('v1')->group(function () {
             Route::get('/dashboard', [AdminDashboardController::class, 'dashboard']);
             Route::get('/users', [AdminDashboardController::class, 'users']);
             Route::get('/restaurants', [AdminDashboardController::class, 'restaurants']);
+            Route::get('/restaurants/{restaurant}/menu', [AdminDashboardController::class, 'restaurantMenu']);
+            Route::patch('/menu-items/{menuItem}', [AdminDashboardController::class, 'updateMenuItem']);
+            Route::delete('/menu-items/{menuItem}', [AdminDashboardController::class, 'deleteMenuItem']);
             Route::get('/restaurant-registrations', [AdminDashboardController::class, 'restaurantRegistrations']);
             Route::patch('/restaurant-registrations/{registration}', [AdminDashboardController::class, 'updateRestaurantRegistration']);
             Route::get('/videos', [AdminDashboardController::class, 'videos']);

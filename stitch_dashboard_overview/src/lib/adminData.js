@@ -287,11 +287,11 @@ export function createDatabaseStats(source = {}) {
   const stats = source.stats || source || {};
 
   return {
-    users: Number(stats.users || stats.total_users || mockAdminData.stats.users),
-    restaurants: Number(stats.restaurants || mockAdminData.stats.restaurants),
-    menuItems: Number(stats.menu_items || mockAdminData.stats.menu_items),
-    orders: Number(stats.orders || mockAdminData.stats.orders),
-    reports: Number(stats.reported_content || stats.open_reports || mockAdminData.stats.reported_content),
+    users: Number(stats.users ?? stats.total_users ?? mockAdminData.stats.users),
+    restaurants: Number(stats.restaurants ?? mockAdminData.stats.restaurants),
+    menuItems: Number(stats.menu_items ?? mockAdminData.stats.menu_items),
+    orders: Number(stats.orders ?? mockAdminData.stats.orders),
+    reports: Number(stats.reported_content ?? stats.open_reports ?? mockAdminData.stats.reported_content),
   };
 }
 

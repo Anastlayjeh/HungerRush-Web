@@ -168,7 +168,7 @@ export default function AdminMenuItems({ onNavigate, token, user, onLogout }) {
       setLoading(true);
       setError("");
       try {
-        const payload = await api.getCustomerRestaurantMenu(token, selectedRestaurantId);
+        const payload = await api.getAdminRestaurantMenu(token, selectedRestaurantId);
         if (isCancelled) return;
 
         const categories = Array.isArray(payload?.categories) ? payload.categories : [];
@@ -191,7 +191,7 @@ export default function AdminMenuItems({ onNavigate, token, user, onLogout }) {
         );
         setItems(fallbackItems);
         setUsingMock(true);
-        setError(requestError?.message || "Restaurant menu endpoint is not available yet.");
+        setError(requestError?.message || "Admin menu endpoint is not available yet.");
       } finally {
         if (!isCancelled) setLoading(false);
       }
@@ -286,30 +286,69 @@ export default function AdminMenuItems({ onNavigate, token, user, onLogout }) {
     setEditForm(createEditState(item));
   };
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!editingItem) return;
     const basePrice = Number(editForm.price || 0);
-    const finalPrice = Number((basePrice * (1 + MENU_COMMISSION_RATE)).toFixed(2));
-    const commissionAmount = Number((finalPrice - basePrice).toFixed(2));
 
-    updateItem(
-      editingItem,
-      {
-        ...editForm,
-        price: finalPrice,
-        final_price: finalPrice,
-        base_price: basePrice,
-        commission_amount: commissionAmount,
-      },
-      `${editForm.name || "Menu item"} was updated locally.`
-    );
-    setEditingItem(null);
+    setError("");
+    setSuccess("");
+
+    try {
+      const updatedItem = await api.updateAdminMenuItem(token, editingItem.id, {
+        name: editForm.name.trim(),
+        category: editForm.category.trim(),
+        price: basePrice,
+        is_available: editForm.availability !== "disabled",
+      });
+      const normalizedItem = normalizeApiMenuItem(
+        updatedItem,
+        selectedRestaurantId,
+        selectedRestaurant?.name,
+        {}
+      );
+
+      updateItem(editingItem, normalizedItem, `${normalizedItem.name || "Menu item"} was updated.`);
+      setEditingItem(null);
+    } catch (requestError) {
+      setError(requestError?.message || "Failed to update menu item.");
+    }
   };
 
-  const deleteItem = (target) => {
-    setItems((previous) => previous.filter((current) => current.id !== target.id));
-    setSuccess(`${target.name || "Menu item"} was removed from the admin view.`);
-    setConfirm(null);
+  const toggleItemAvailability = async (target) => {
+    const nextAvailability = target.availability === "disabled" ? "available" : "disabled";
+
+    setError("");
+    setSuccess("");
+
+    try {
+      const updatedItem = await api.updateAdminMenuItem(token, target.id, {
+        is_available: nextAvailability === "available",
+      });
+      const normalizedItem = normalizeApiMenuItem(
+        updatedItem,
+        selectedRestaurantId,
+        selectedRestaurant?.name,
+        {}
+      );
+
+      updateItem(target, normalizedItem, `${normalizedItem.name || "Menu item"} is now ${nextAvailability}.`);
+    } catch (requestError) {
+      setError(requestError?.message || "Failed to update menu item availability.");
+    }
+  };
+
+  const deleteItem = async (target) => {
+    setError("");
+    setSuccess("");
+
+    try {
+      await api.deleteAdminMenuItem(token, target.id);
+      setItems((previous) => previous.filter((current) => current.id !== target.id));
+      setSuccess(`${target.name || "Menu item"} was deleted.`);
+      setConfirm(null);
+    } catch (requestError) {
+      setError(requestError?.message || "Failed to delete menu item.");
+    }
   };
 
   const emptyMessage = selectedRestaurantId
@@ -394,10 +433,7 @@ export default function AdminMenuItems({ onNavigate, token, user, onLogout }) {
                       <ActionButton
                         tone={row.availability === "disabled" ? "success" : "danger"}
                         icon={row.availability === "disabled" ? "check_circle" : "block"}
-                        onClick={() => {
-                          const nextAvailability = row.availability === "disabled" ? "available" : "disabled";
-                          updateItem(row, { availability: nextAvailability }, `${row.name} is now ${nextAvailability}.`);
-                        }}
+                        onClick={() => toggleItemAvailability(row)}
                       >
                         {row.availability === "disabled" ? "Enable" : "Disable"}
                       </ActionButton>
@@ -407,7 +443,7 @@ export default function AdminMenuItems({ onNavigate, token, user, onLogout }) {
                         onClick={() =>
                           setConfirm({
                             title: "Delete Menu Item",
-                            message: `Delete ${row.name || `item #${row.id}`} from this admin view?`,
+                            message: `Delete ${row.name || `item #${row.id}`} from the menu?`,
                             confirmLabel: "Delete",
                             onConfirm: () => deleteItem(row),
                           })
@@ -461,7 +497,7 @@ export default function AdminMenuItems({ onNavigate, token, user, onLogout }) {
       {editingItem ? (
         <Modal
           title="Edit Menu Item"
-          subtitle="Placeholder save until admin menu endpoints exist."
+          subtitle={`Item #${editingItem.id}`}
           onClose={() => setEditingItem(null)}
           footer={
             <>
