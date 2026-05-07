@@ -159,6 +159,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/restaurants', [CustomerRestaurantController::class, 'index']);
         Route::get('/restaurants/{restaurant}', [CustomerRestaurantController::class, 'show']);
         Route::get('/restaurants/{restaurant}/menu', [CustomerRestaurantController::class, 'menu']);
+        Route::post('/restaurants/{restaurant}/reviews', [CustomerRestaurantController::class, 'storeReview']);
         Route::get('/restaurants/{restaurant}/reviews', [CustomerRestaurantController::class, 'reviews']);
         Route::get('/restaurants/{restaurant}/loyalty-offers', [CustomerLoyaltyController::class, 'offers']);
 

@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers\Api\V1\Customer;
 
+use App\Enums\OrderStatus;
+use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Customer\StoreRestaurantReviewRequest;
 use App\Http\Resources\MenuCategoryResource;
 use App\Http\Resources\MenuItemResource;
 use App\Http\Resources\RestaurantResource;
+use App\Models\Order;
 use App\Models\Restaurant;
 use App\Models\Review;
 use Illuminate\Database\Eloquent\Builder;
@@ -89,6 +93,9 @@ class RestaurantController extends Controller
 
     public function reviews(Restaurant $restaurant, Request $request)
     {
+        $perPage = (int) $request->query('per_page', 20);
+        $perPage = max(1, min($perPage, 100));
+
         $query = Review::query()
             ->where('restaurant_id', $restaurant->id)
             ->with('customer:id,name,avatar')
@@ -99,28 +106,10 @@ class RestaurantController extends Controller
             $query->where('rating', $rating);
         }
 
-        $reviews = $query->paginate(20);
+        $reviews = $query->paginate($perPage);
 
         return $this->successResponse(
-            $reviews->getCollection()->map(function (Review $review) {
-                return [
-                    'id' => $review->id,
-                    'restaurant_id' => $review->restaurant_id,
-                    'customer_id' => $review->customer_id,
-                    'order_id' => $review->order_id,
-                    'rating' => (int) $review->rating,
-                    'comment' => $review->comment,
-                    'reply' => $review->reply,
-                    'replied_at' => optional($review->replied_at)->toISOString(),
-                    'customer' => $review->customer ? [
-                        'id' => $review->customer->id,
-                        'name' => $review->customer->name,
-                        'avatar' => $review->customer->avatar,
-                    ] : null,
-                    'created_at' => optional($review->created_at)->toISOString(),
-                    'updated_at' => optional($review->updated_at)->toISOString(),
-                ];
-            })->values(),
+            $reviews->getCollection()->map(fn (Review $review) => $this->transformReview($review))->values(),
             [
                 'current_page' => $reviews->currentPage(),
                 'per_page' => $reviews->perPage(),
@@ -128,6 +117,120 @@ class RestaurantController extends Controller
                 'last_page' => $reviews->lastPage(),
             ]
         );
+    }
+
+    public function storeReview(Restaurant $restaurant, StoreRestaurantReviewRequest $request)
+    {
+        $validated = $request->validated();
+        $customerId = (int) auth()->id();
+        $requestedOrderId = isset($validated['order_id']) ? (int) $validated['order_id'] : null;
+
+        if ($requestedOrderId !== null) {
+            $order = Order::query()
+                ->where('customer_id', $customerId)
+                ->where('restaurant_id', $restaurant->id)
+                ->whereKey($requestedOrderId)
+                ->first();
+
+            if (!$order) {
+                return $this->errorResponse(
+                    'Order was not found for this restaurant.',
+                    ['order_id' => ['Order is invalid for this restaurant.']],
+                    'invalid_order',
+                    422
+                );
+            }
+
+            if (!$this->orderCanBeReviewed($order)) {
+                return $this->errorResponse(
+                    'Review can be submitted only after delivery or successful payment.',
+                    ['order_id' => ['Order is not eligible for review yet.']],
+                    'order_not_reviewable',
+                    422
+                );
+            }
+
+            $existing = Review::query()
+                ->where('restaurant_id', $restaurant->id)
+                ->where('customer_id', $customerId)
+                ->where('order_id', $order->id)
+                ->exists();
+
+            if ($existing) {
+                return $this->errorResponse(
+                    'You already reviewed this order.',
+                    ['order_id' => ['Duplicate review is not allowed for this order.']],
+                    'duplicate_review',
+                    422
+                );
+            }
+        } else {
+            $order = Order::query()
+                ->where('customer_id', $customerId)
+                ->where('restaurant_id', $restaurant->id)
+                ->where(function (Builder $builder) {
+                    $builder
+                        ->where('status', OrderStatus::Delivered->value)
+                        ->orWhere('payment_status', PaymentStatus::Paid->value);
+                })
+                ->whereDoesntHave('reviews', function (Builder $builder) use ($customerId) {
+                    $builder->where('customer_id', $customerId);
+                })
+                ->latest()
+                ->first();
+
+            if (!$order) {
+                return $this->errorResponse(
+                    'No eligible completed order found to review.',
+                    ['order_id' => ['Place and complete an order from this restaurant first.']],
+                    'order_not_reviewable',
+                    422
+                );
+            }
+        }
+
+        $review = Review::query()->create([
+            'restaurant_id' => $restaurant->id,
+            'customer_id' => $customerId,
+            'order_id' => $order->id,
+            'rating' => (int) $validated['rating'],
+            'comment' => trim((string) ($validated['comment'] ?? '')),
+        ]);
+
+        $review->load('customer:id,name,avatar');
+
+        return $this->successResponse(
+            $this->transformReview($review),
+            message: 'Review submitted successfully.',
+            status: 201
+        );
+    }
+
+    private function orderCanBeReviewed(Order $order): bool
+    {
+        return $order->status === OrderStatus::Delivered
+            || $order->payment_status === PaymentStatus::Paid;
+    }
+
+    private function transformReview(Review $review): array
+    {
+        return [
+            'id' => $review->id,
+            'restaurant_id' => $review->restaurant_id,
+            'customer_id' => $review->customer_id,
+            'order_id' => $review->order_id,
+            'rating' => (int) $review->rating,
+            'comment' => $review->comment,
+            'reply' => $review->reply,
+            'replied_at' => optional($review->replied_at)->toISOString(),
+            'customer' => $review->customer ? [
+                'id' => $review->customer->id,
+                'name' => $review->customer->name,
+                'avatar' => $review->customer->avatar,
+            ] : null,
+            'created_at' => optional($review->created_at)->toISOString(),
+            'updated_at' => optional($review->updated_at)->toISOString(),
+        ];
     }
 
     private function applyRestaurantAggregatesToQuery(Builder $query): void
