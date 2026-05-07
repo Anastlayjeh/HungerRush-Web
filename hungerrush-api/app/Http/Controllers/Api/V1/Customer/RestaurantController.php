@@ -12,6 +12,7 @@ use App\Http\Resources\RestaurantResource;
 use App\Models\Order;
 use App\Models\Restaurant;
 use App\Models\Review;
+use App\Models\Video;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -115,6 +116,44 @@ class RestaurantController extends Controller
                 'per_page' => $reviews->perPage(),
                 'total' => $reviews->total(),
                 'last_page' => $reviews->lastPage(),
+            ]
+        );
+    }
+
+    public function videos(Restaurant $restaurant, Request $request)
+    {
+        $perPage = (int) $request->query('per_page', 20);
+        $perPage = max(1, min($perPage, 50));
+
+        $query = Video::query()
+            ->where('restaurant_id', $restaurant->id)
+            ->where('status', 'published')
+            ->where('stream_ready', true)
+            ->where(function (Builder $builder) {
+                $builder
+                    ->whereNull('moderation_status')
+                    ->orWhere('moderation_status', '')
+                    ->orWhere('moderation_status', 'approved');
+            })
+            ->withCount([
+                'engagements as views_count' => fn ($builder) => $builder->where('type', 'view'),
+                'engagements as likes_count' => fn ($builder) => $builder->where('type', 'like'),
+                'engagements as shares_count' => fn ($builder) => $builder->where('type', 'share'),
+                'engagements as saves_count' => fn ($builder) => $builder->where('type', 'save'),
+                'comments',
+            ])
+            ->orderByDesc('published_at')
+            ->latest();
+
+        $videos = $query->paginate($perPage);
+
+        return $this->successResponse(
+            $videos->getCollection()->map(fn (Video $video) => $this->transformVideo($video))->values(),
+            [
+                'current_page' => $videos->currentPage(),
+                'per_page' => $videos->perPage(),
+                'total' => $videos->total(),
+                'last_page' => $videos->lastPage(),
             ]
         );
     }
@@ -230,6 +269,39 @@ class RestaurantController extends Controller
             ] : null,
             'created_at' => optional($review->created_at)->toISOString(),
             'updated_at' => optional($review->updated_at)->toISOString(),
+        ];
+    }
+
+    private function transformVideo(Video $video): array
+    {
+        return [
+            'id' => $video->id,
+            'restaurant_id' => $video->restaurant_id,
+            'menu_item_id' => $video->menu_item_id,
+            'title' => $video->title,
+            'description' => $video->description,
+            'media_url' => $video->media_url,
+            'thumbnail_url' => $video->thumbnail_url,
+            'stream_uid' => $video->cloudflare_stream_uid,
+            'duration_seconds' => $video->duration_seconds ? (int) $video->duration_seconds : null,
+            'stream_status' => $video->stream_status,
+            'stream_ready' => (bool) $video->stream_ready,
+            'stream_hls_url' => $video->stream_hls_url,
+            'stream_dash_url' => $video->stream_dash_url,
+            'stream_preview_url' => $video->stream_preview_url,
+            'status' => $video->status,
+            'published_at' => optional($video->published_at)->toISOString(),
+            'moderation_status' => $video->moderation_status,
+            'moderation_reason' => $video->moderation_reason,
+            'stats' => [
+                'views_count' => (int) ($video->views_count ?? 0),
+                'likes_count' => (int) ($video->likes_count ?? 0),
+                'shares_count' => (int) ($video->shares_count ?? 0),
+                'saves_count' => (int) ($video->saves_count ?? 0),
+                'comments_count' => (int) ($video->comments_count ?? 0),
+            ],
+            'created_at' => optional($video->created_at)->toISOString(),
+            'updated_at' => optional($video->updated_at)->toISOString(),
         ];
     }
 
