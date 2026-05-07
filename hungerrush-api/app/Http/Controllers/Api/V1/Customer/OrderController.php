@@ -11,6 +11,7 @@ use App\Models\Cart;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderStatusHistory;
+use App\Models\RestaurantBranch;
 use App\Models\UserNotification;
 use App\Services\OrderNotificationService;
 use App\Services\OrderStatusTransitionService;
@@ -20,7 +21,8 @@ class OrderController extends Controller
 {
     public function place(PlaceOrderRequest $request, OrderNotificationService $orderNotificationService)
     {
-        $cart = $this->resolveCartForPlacement($request->validated());
+        $validated = $request->validated();
+        $cart = $this->resolveCartForPlacement($validated);
         $cart->load('items.menuItem');
         abort_if($cart->items->isEmpty(), 422, 'Cart is empty.');
         abort_if($cart->restaurant_id === null, 422, 'Cart restaurant is missing.');
@@ -30,23 +32,51 @@ class OrderController extends Controller
             'Cart contains unavailable menu items.'
         );
 
-        $order = DB::transaction(function () use ($cart, $request) {
+        $branchId = $validated['branch_id'] ?? null;
+        if (
+            $branchId !== null
+            && !RestaurantBranch::query()
+                ->whereKey($branchId)
+                ->where('restaurant_id', $cart->restaurant_id)
+                ->exists()
+        ) {
+            return $this->errorResponse(
+                'Selected branch does not belong to this restaurant.',
+                ['branch_id' => ['Invalid branch.']],
+                'invalid_branch',
+                422
+            );
+        }
+
+        $order = DB::transaction(function () use ($cart, $validated, $branchId) {
             $subtotal = 0;
             foreach ($cart->items as $item) {
                 $subtotal += (float) $item->menuItem->price * $item->quantity;
             }
             $fees = round($subtotal * 0.10, 2);
-            $total = $subtotal + $fees;
+            $total = round($subtotal + $fees, 2);
+            $deliveryAddress = $validated['delivery_address'];
 
             $order = Order::create([
                 'customer_id' => auth()->id(),
                 'restaurant_id' => $cart->restaurant_id,
-                'branch_id' => $request->validated()['branch_id'] ?? null,
+                'branch_id' => $branchId,
                 'subtotal' => $subtotal,
                 'fees' => $fees,
                 'total' => $total,
                 'status' => OrderStatus::Pending->value,
                 'payment_status' => PaymentStatus::Unpaid->value,
+                'delivery_address' => $deliveryAddress,
+                'delivery_address_label' => $validated['delivery_address_label']
+                    ?? $this->formatDeliveryAddressLabel($deliveryAddress),
+                'delivery_phone' => $validated['delivery_phone'],
+                'order_notes' => $validated['order_notes'] ?? null,
+                'payment_method' => $validated['payment_method'],
+                'delivery_mode' => $validated['delivery_mode'] ?? 'now',
+                'scheduled_label' => $validated['scheduled_label'] ?? null,
+                'change_request' => $validated['change_request'] ?? null,
+                'use_loyalty' => (bool) ($validated['use_loyalty'] ?? false),
+                'save_change_in_wallet' => (bool) ($validated['save_change_in_wallet'] ?? false),
             ]);
 
             foreach ($cart->items as $item) {
@@ -83,7 +113,7 @@ class OrderController extends Controller
         $orderNotificationService->notifyNewOrder($order);
 
         return $this->successResponse(
-            new OrderResource($order->load(['restaurant.branches', 'branch', 'items.menuItem.category', 'statusHistory', 'loyaltyTransactions'])),
+            new OrderResource($order->load(['customer:id,name,email,phone', 'restaurant.branches', 'branch', 'items.menuItem.category', 'statusHistory', 'loyaltyTransactions'])),
             message: 'Order placed successfully.',
             status: 201
         );
@@ -99,7 +129,7 @@ class OrderController extends Controller
     {
         $orders = Order::query()
             ->where('customer_id', auth()->id())
-            ->with(['restaurant.branches', 'branch', 'items.menuItem.category', 'loyaltyTransactions'])
+            ->with(['restaurant.branches', 'branch', 'items.menuItem.category', 'statusHistory', 'loyaltyTransactions'])
             ->latest()
             ->paginate(20);
 
@@ -176,5 +206,20 @@ class OrderController extends Controller
             ->whereHas('items')
             ->latest('updated_at')
             ->firstOrFail();
+    }
+
+    private function formatDeliveryAddressLabel(array $address): string
+    {
+        return collect([
+            $address['city'] ?? null,
+            $address['street'] ?? null,
+            isset($address['building']) ? 'Building '.$address['building'] : null,
+            isset($address['floor']) ? 'Floor '.$address['floor'] : null,
+            isset($address['apartment']) ? 'Apt '.$address['apartment'] : null,
+            $address['landmark'] ?? null,
+        ])
+            ->map(fn ($value) => is_string($value) ? trim($value) : null)
+            ->filter()
+            ->implode(', ');
     }
 }

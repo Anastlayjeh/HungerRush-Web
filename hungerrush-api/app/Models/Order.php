@@ -23,6 +23,16 @@ class Order extends Model
         'status',
         'payment_status',
         'is_quick_order',
+        'delivery_address',
+        'delivery_address_label',
+        'delivery_phone',
+        'order_notes',
+        'payment_method',
+        'delivery_mode',
+        'scheduled_label',
+        'change_request',
+        'use_loyalty',
+        'save_change_in_wallet',
     ];
 
     protected function casts(): array
@@ -34,6 +44,9 @@ class Order extends Model
             'status' => OrderStatus::class,
             'payment_status' => PaymentStatus::class,
             'is_quick_order' => 'boolean',
+            'delivery_address' => 'array',
+            'use_loyalty' => 'boolean',
+            'save_change_in_wallet' => 'boolean',
         ];
     }
 
