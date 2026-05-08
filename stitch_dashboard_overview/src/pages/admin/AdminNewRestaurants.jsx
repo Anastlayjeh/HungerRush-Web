@@ -42,6 +42,47 @@ function contactInfo(registration) {
   );
 }
 
+function registrationPayload(registration) {
+  return registration?.payload && typeof registration.payload === "object" ? registration.payload : {};
+}
+
+function locationInfo(registration) {
+  const payload = registrationPayload(registration);
+  const location =
+    registration?.location && typeof registration.location === "object"
+      ? registration.location
+      : payload?.location && typeof payload.location === "object"
+        ? payload.location
+        : {};
+
+  const parts = [location.street, location.city, location.country, location.postal_code || location.postalCode]
+    .map((part) => (typeof part === "string" ? part.trim() : ""))
+    .filter(Boolean);
+
+  return parts.length ? parts.join(", ") : "-";
+}
+
+function phoneNumbers(registration) {
+  const payload = registrationPayload(registration);
+  const numbers = Array.isArray(registration?.phone_numbers)
+    ? registration.phone_numbers
+    : Array.isArray(payload?.phone_numbers)
+      ? payload.phone_numbers
+      : [];
+
+  return numbers
+    .map((phone) => {
+      if (typeof phone === "string") return phone.trim();
+      if (!phone || typeof phone !== "object") return "";
+
+      return [phone.country_code || phone.countryCode, phone.number || phone.phone]
+        .map((part) => (typeof part === "string" ? part.trim() : ""))
+        .filter(Boolean)
+        .join(" ");
+    })
+    .filter(Boolean);
+}
+
 function createdTimestamp(value) {
   const date = new Date(value || "");
   const time = date.getTime();
@@ -107,7 +148,8 @@ export default function AdminNewRestaurants({ onNavigate, token, user, onLogout 
               String(registration?.id || "").includes(normalizedSearch) ||
               String(restaurantName(registration)).toLowerCase().includes(normalizedSearch) ||
               String(ownerName(registration)).toLowerCase().includes(normalizedSearch) ||
-              String(contactInfo(registration)).toLowerCase().includes(normalizedSearch)
+              String(contactInfo(registration)).toLowerCase().includes(normalizedSearch) ||
+              String(locationInfo(registration)).toLowerCase().includes(normalizedSearch)
             );
           })
           .sort((left, right) => createdTimestamp(left?.created_at) - createdTimestamp(right?.created_at));
@@ -291,6 +333,8 @@ export default function AdminNewRestaurants({ onNavigate, token, user, onLogout 
             <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs font-bold uppercase text-slate-500">Waiting Days</p><p className="mt-1 font-semibold">{waitingDays(selectedRegistration.created_at)}</p></div>
             <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs font-bold uppercase text-slate-500">Owner User ID</p><p className="mt-1 font-semibold">#{selectedRegistration.owner_user_id || "-"}</p></div>
             <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs font-bold uppercase text-slate-500">Status</p><p className="mt-1 font-semibold">{registrationStatus(selectedRegistration.status)}</p></div>
+            <div className="rounded-xl bg-slate-50 p-4 md:col-span-2"><p className="text-xs font-bold uppercase text-slate-500">Location</p><p className="mt-1 font-semibold">{locationInfo(selectedRegistration)}</p></div>
+            <div className="rounded-xl bg-slate-50 p-4 md:col-span-2"><p className="text-xs font-bold uppercase text-slate-500">Phone Numbers</p><p className="mt-1 font-semibold">{phoneNumbers(selectedRegistration).join(", ") || selectedRegistration.contact_phone || "-"}</p></div>
             <div className="rounded-xl bg-slate-50 p-4 md:col-span-2"><p className="text-xs font-bold uppercase text-slate-500">Description</p><p className="mt-1 text-slate-700">{selectedRegistration.description || "No description available."}</p></div>
             {selectedRegistration.review_note ? (
               <div className="rounded-xl bg-slate-50 p-4 md:col-span-2"><p className="text-xs font-bold uppercase text-slate-500">Review Note</p><p className="mt-1 text-slate-700">{selectedRegistration.review_note}</p></div>

@@ -624,7 +624,7 @@ class DashboardController extends Controller
 
         if ($validated['status'] === 'approved') {
             $registrationEmail = $this->normalizeEmail($registration->contact_email);
-            $registrationPhone = is_string($registration->contact_phone) ? trim($registration->contact_phone) : $registration->contact_phone;
+            $registrationPhone = is_string($registration->contact_phone) ? trim($registration->contact_phone) : null;
             $owner = User::query()->find($registration->owner_user_id);
 
             if (!$owner && !blank($registrationEmail)) {
@@ -700,6 +700,8 @@ class DashboardController extends Controller
             }
 
             $restaurant->save();
+
+            $this->createRegistrationBranchIfMissing($restaurant, $registration, $registrationPhone);
         }
 
         return $this->successResponse(
@@ -777,13 +779,20 @@ class DashboardController extends Controller
 
     private function transformRestaurantRegistration(RestaurantRegistration $registration): array
     {
+        $payload = is_array($registration->payload) ? $registration->payload : [];
+        $location = $payload['location'] ?? null;
+        $phoneNumbers = $payload['phone_numbers'] ?? [];
+
         return [
             'id' => $registration->id,
             'owner_user_id' => $registration->owner_user_id,
+            'owner_name' => $payload['owner_name'] ?? null,
             'restaurant_name' => $registration->restaurant_name,
             'description' => $registration->description,
             'contact_email' => $registration->contact_email,
             'contact_phone' => $registration->contact_phone,
+            'location' => is_array($location) ? $location : null,
+            'phone_numbers' => is_array($phoneNumbers) ? $phoneNumbers : [],
             'status' => $registration->status,
             'review_note' => $registration->review_note,
             'reviewed_at' => optional($registration->reviewed_at)->toISOString(),
@@ -808,6 +817,49 @@ class DashboardController extends Controller
                 'email' => $registration->reviewer->email,
             ] : null,
         ];
+    }
+
+    private function createRegistrationBranchIfMissing(Restaurant $restaurant, RestaurantRegistration $registration, ?string $phone): void
+    {
+        if ($restaurant->branches()->exists()) {
+            return;
+        }
+
+        $payload = is_array($registration->payload) ? $registration->payload : [];
+        $location = $payload['location'] ?? null;
+        if (!is_array($location)) {
+            return;
+        }
+
+        $address = $this->formatRegistrationAddress($location);
+        if ($address === '') {
+            return;
+        }
+
+        $restaurant->branches()->create([
+            'name' => 'Main Branch',
+            'address' => $address,
+            'phone' => $phone,
+        ]);
+    }
+
+    private function formatRegistrationAddress(array $location): string
+    {
+        $parts = [];
+
+        foreach (['street', 'city', 'country', 'postal_code'] as $field) {
+            $value = $location[$field] ?? null;
+            if (!is_scalar($value)) {
+                continue;
+            }
+
+            $value = trim((string) $value);
+            if ($value !== '') {
+                $parts[] = $value;
+            }
+        }
+
+        return implode(', ', $parts);
     }
 
     private function assertAdmin(Request $request): void

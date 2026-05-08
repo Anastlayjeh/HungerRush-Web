@@ -28,6 +28,18 @@ class AdminRestaurantRegistrationApiTest extends TestCase
                 'source' => 'test_case',
                 'documents_submitted' => true,
                 'owner_name' => 'Test Registration Owner',
+                'phone_numbers' => [
+                    [
+                        'country_code' => '+961',
+                        'number' => '70090901',
+                    ],
+                ],
+                'location' => [
+                    'country' => 'lebanon',
+                    'city' => 'beirut',
+                    'street' => 'hadath',
+                    'postal_code' => '1103',
+                ],
             ],
             'status' => 'pending',
         ]);
@@ -40,7 +52,9 @@ class AdminRestaurantRegistrationApiTest extends TestCase
                 'review_note' => 'Approved in test.',
             ])
             ->assertOk()
-            ->assertJsonPath('data.status', 'approved');
+            ->assertJsonPath('data.status', 'approved')
+            ->assertJsonPath('data.location.city', 'beirut')
+            ->assertJsonPath('data.phone_numbers.0.country_code', '+961');
 
         $owner = User::query()
             ->whereRaw('LOWER(email) = ?', ['new.registration.owner@hungerrush.local'])
@@ -59,6 +73,12 @@ class AdminRestaurantRegistrationApiTest extends TestCase
             'owner_user_id' => $owner->id,
             'name' => 'Test Registration Kitchen',
             'status' => 'active',
+        ]);
+
+        $this->assertDatabaseHas('restaurant_branches', [
+            'name' => 'Main Branch',
+            'address' => 'hadath, beirut, lebanon, 1103',
+            'phone' => '+96170090901',
         ]);
     }
 }

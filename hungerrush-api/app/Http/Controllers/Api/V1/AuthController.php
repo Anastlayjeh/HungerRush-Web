@@ -12,6 +12,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
@@ -26,29 +27,42 @@ class AuthController extends Controller
     public function register(RegisterRequest $request)
     {
         $validated = $request->validated();
-        $user = User::create(Arr::except($validated, ['restaurant_name', 'restaurant_description']));
 
-        if (($user->role?->value ?? $user->role) === UserRole::RestaurantOwner->value) {
-            RestaurantRegistration::create([
-                'owner_user_id' => $user->id,
-                'restaurant_name' => trim((string) ($validated['restaurant_name'] ?? '')) ?: "{$user->name}'s Restaurant",
-                'description' => $validated['restaurant_description'] ?? null,
-                'contact_email' => $user->email,
-                'contact_phone' => $user->phone,
-                'status' => 'pending',
-                'payload' => [
-                    'source' => 'auth_register',
-                    'submitted_role' => UserRole::RestaurantOwner->value,
-                ],
-            ]);
-        }
+        $result = DB::transaction(function () use ($request, $validated): array {
+            $user = User::create(Arr::only($validated, ['name', 'email', 'phone', 'password', 'role']));
 
-        $token = $this->createAccessToken($user, $request->input('device_name', 'default-device'));
+            if (($user->role?->value ?? $user->role) === UserRole::RestaurantOwner->value) {
+                RestaurantRegistration::create([
+                    'owner_user_id' => $user->id,
+                    'restaurant_name' => trim((string) ($validated['restaurant_name'] ?? '')) ?: "{$user->name}'s Restaurant",
+                    'description' => $validated['restaurant_description'] ?? null,
+                    'contact_email' => $user->email,
+                    'contact_phone' => $user->phone,
+                    'status' => 'pending',
+                    'payload' => [
+                        'source' => 'auth_register',
+                        'submitted_role' => UserRole::RestaurantOwner->value,
+                        'owner_name' => $user->name,
+                        'phone_numbers' => $validated['phone_numbers'] ?? [],
+                        'location' => array_filter([
+                            'country' => $validated['country'] ?? null,
+                            'city' => $validated['city'] ?? null,
+                            'street' => $validated['street'] ?? null,
+                            'postal_code' => $validated['postal_code'] ?? null,
+                        ], fn ($value) => filled($value)),
+                    ],
+                ]);
+            }
 
-        return $this->successResponse([
-            'user' => $user,
-            'token' => $token,
-        ], message: 'Registration successful.', status: 201);
+            $token = $this->createAccessToken($user, $request->input('device_name', 'default-device'));
+
+            return [
+                'user' => $user,
+                'token' => $token,
+            ];
+        });
+
+        return $this->successResponse($result, message: 'Registration successful.', status: 201);
     }
 
     public function login(LoginRequest $request)

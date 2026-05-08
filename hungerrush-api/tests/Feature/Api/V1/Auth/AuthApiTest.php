@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api\V1\Auth;
 
+use App\Models\RestaurantRegistration;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -25,6 +26,51 @@ class AuthApiTest extends TestCase
         $response->assertCreated()
             ->assertJsonPath('data.user.email', 'anas@example.com')
             ->assertJsonStructure(['data' => ['user', 'token']]);
+    }
+
+    public function test_restaurant_owner_can_register_with_mobile_payload_aliases(): void
+    {
+        $response = $this->postJson('/api/v1/auth/register', [
+            'name' => 'Approval Owner',
+            'email' => 'approval@hungerrush.local',
+            'password' => 'password',
+            'confirmPassword' => 'password',
+            'role' => 'restaurant',
+            'restaurantName' => 'Italian',
+            'phone_numbers' => [
+                [
+                    'country_code' => 'LB +961',
+                    'number' => '70123456',
+                ],
+            ],
+            'country' => 'lebanon',
+            'city' => 'beirut',
+            'street' => 'hadath',
+            'postalCode' => '1103',
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.user.email', 'approval@hungerrush.local')
+            ->assertJsonPath('data.user.role', 'restaurant_owner')
+            ->assertJsonPath('data.user.phone', '+96170123456');
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'approval@hungerrush.local',
+            'role' => 'restaurant_owner',
+            'phone' => '+96170123456',
+        ]);
+
+        $registration = RestaurantRegistration::query()->first();
+
+        $this->assertNotNull($registration);
+        $this->assertSame('Italian', $registration->restaurant_name);
+        $this->assertSame('approval@hungerrush.local', $registration->contact_email);
+        $this->assertSame('+96170123456', $registration->contact_phone);
+        $this->assertSame('pending', $registration->status);
+        $this->assertSame('beirut', $registration->payload['location']['city']);
+        $this->assertSame('1103', $registration->payload['location']['postal_code']);
+        $this->assertSame('+961', $registration->payload['phone_numbers'][0]['country_code']);
+        $this->assertSame('70123456', $registration->payload['phone_numbers'][0]['number']);
     }
 
     public function test_user_can_login_and_fetch_me(): void
